@@ -1219,131 +1219,91 @@ frontend/
 
 ## Setup & Installation
 
-### 1. Create React Project with Vite
+### Option A: Quick Start with Shadcn (Recommended)
+
+Create a new project with shadcn/ui pre-configured:
 
 ```bash
-# Create new project
-npx create-vite@latest frontend --template react-ts
-cd frontend
+# Create new project with shadcn/ui (includes Vite + TailwindCSS v4)
+npx shadcn@latest create
 
-# Install dependencies
+# Follow the prompts:
+# - Project name: cv-screener-frontend
+# - Framework: Vite + React
+# - Style: Default
+# - Base color: Slate
+# - CSS variables: Yes
+
+cd cv-screener-frontend
+
+# Add required components
+npx shadcn@latest add button card dialog input progress select table tabs toast badge avatar dropdown-menu
+
+# Install additional dependencies
+npm install @tanstack/react-query react-hook-form @hookform/resolvers zod
+npm install lucide-react react-dropzone react-router-dom
+```
+
+### Option B: Manual Setup
+
+#### 1. Create React Project with Vite
+
+```bash
+# Scaffold Vite project
+npm create vite@latest cv-screener-frontend
+
+# Select:
+# - Framework: React
+# - Variant: TypeScript
+
+cd cv-screener-frontend
 npm install
 ```
 
-### 2. Install TailwindCSS
+#### 2. Install TailwindCSS v4
+
+Following the official guide: https://tailwindcss.com/docs/installation/using-vite
 
 ```bash
-# Install Tailwind and dependencies
-npm install -D tailwindcss postcss autoprefixer
-
-# Initialize Tailwind
-npx tailwindcss init -p
+# Install TailwindCSS and the Vite plugin
+npm install tailwindcss @tailwindcss/vite
 ```
 
-**tailwind.config.js:**
+#### 3. Configure Vite Plugin
 
-```javascript
-/** @type {import('tailwindcss').Config} */
-export default {
-  darkMode: ["class"],
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  theme: {
-    extend: {
-      colors: {
-        border: "hsl(var(--border))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        // Score group colors
-        excellent: "#22c55e",
-        good: "#3b82f6",
-        average: "#f59e0b",
-        below: "#ef4444",
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-    },
-  },
-  plugins: [require("tailwindcss-animate")],
-};
+**vite.config.ts:**
+
+```typescript
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+});
 ```
+
+#### 4. Import Tailwind CSS
 
 **src/index.css:**
 
 ```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-  }
-}
+@import "tailwindcss";
 ```
 
-### 3. Install Shadcn/ui
+#### 5. Install Shadcn/ui
+
+Following the official guide: https://ui.shadcn.com/docs/installation/vite
 
 ```bash
-# Initialize Shadcn
+# Initialize shadcn/ui
 npx shadcn@latest init
 
 # Install required components
 npx shadcn@latest add button card dialog input progress select table tabs toast badge avatar dropdown-menu
 ```
 
-### 4. Install Additional Dependencies
+#### 6. Install Additional Dependencies
 
 ```bash
 # React Query for server state

@@ -107,7 +107,6 @@ Local-AI-Resume-Analyzer/
 │   │   ├── main.tsx
 │   │   └── index.css
 │   ├── components.json            # Shadcn config
-│   ├── tailwind.config.js
 │   ├── vite.config.ts
 │   ├── tsconfig.json
 │   └── package.json
@@ -135,20 +134,20 @@ Local-AI-Resume-Analyzer/
 
 ### Frontend
 
-| Component     | Technology          | Version | Purpose                     |
-| ------------- | ------------------- | ------- | --------------------------- |
-| Framework     | React               | 18.2.0  | UI component library        |
-| Build Tool    | Vite                | 5.0.8   | Fast development & bundling |
-| Language      | TypeScript          | 5.2.2   | Type safety                 |
-| Styling       | TailwindCSS         | 3.4.0   | Utility-first CSS           |
-| UI Components | Shadcn/ui           | latest  | Accessible component system |
-| State         | React Query         | 5.17.0  | Server state management     |
-| Forms         | React Hook Form     | 7.49.2  | Form handling               |
-| Validation    | Zod                 | 3.22.4  | Schema validation           |
-| Icons         | Lucide React        | 0.303.0 | Beautiful icon set          |
-| Router        | React Router DOM    | 6.21.1  | Client-side routing         |
-| File Upload   | react-dropzone      | 14.2.3  | Drag & drop uploads         |
-| Animations    | tailwindcss-animate | 1.0.7   | UI animations               |
+| Component       | Technology        | Version | Purpose                     |
+| --------------- | ----------------- | ------- | --------------------------- |
+| Framework       | React             | 18.2.0  | UI component library        |
+| Build Tool      | Vite              | 6.x     | Fast development & bundling |
+| Language        | TypeScript        | 5.x     | Type safety                 |
+| Styling         | TailwindCSS       | 4.x     | Utility-first CSS           |
+| Tailwind Plugin | @tailwindcss/vite | 4.x     | Vite integration            |
+| UI Components   | Shadcn/ui         | latest  | Accessible component system |
+| State           | React Query       | 5.x     | Server state management     |
+| Forms           | React Hook Form   | 7.x     | Form handling               |
+| Validation      | Zod               | 3.x     | Schema validation           |
+| Icons           | Lucide React      | latest  | Beautiful icon set          |
+| Router          | React Router DOM  | 7.x     | Client-side routing         |
+| File Upload     | react-dropzone    | 14.x    | Drag & drop uploads         |
 
 ---
 
@@ -892,55 +891,9 @@ ALLOWED_EXTENSIONS=pdf
 
 ## 3.2 Tailwind Configuration
 
-**File:** `frontend/tailwind.config.js`
+In Tailwind CSS v4, configuration is handled directly in CSS using the `@theme` directive. No `tailwind.config.js` is required.
 
-```javascript
-/** @type {import('tailwindcss').Config} */
-export default {
-  darkMode: ["class"],
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
-  theme: {
-    extend: {
-      colors: {
-        border: "hsl(var(--border))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        // Score group colors
-        excellent: "#22c55e",
-        good: "#3b82f6",
-        average: "#f59e0b",
-        below: "#ef4444",
-      },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
-    },
-  },
-  plugins: [require("tailwindcss-animate")],
-};
-```
+See Section 3.9 for the full CSS configuration.
 
 ## 3.3 TypeScript Types
 
@@ -1284,25 +1237,280 @@ export function ScoreGroup({
 
 ## 3.7 Frontend Setup Commands
 
+### Option A: Quick Start with Shadcn (Recommended)
+
+Create a new project with shadcn/ui pre-configured:
+
 ```bash
-# 1. Create Vite project
-npx create-vite@latest frontend --template react-ts
-cd frontend
+# Create new project with shadcn/ui (includes Vite + TailwindCSS v4)
+npx shadcn@latest create
 
-# 2. Install base dependencies
-npm install
+# Follow the prompts:
+# - Project name: cv-screener-frontend
+# - Framework: Vite + React
+# - Style: Default
+# - Base color: Slate
+# - CSS variables: Yes
 
-# 3. Install TailwindCSS
-npm install -D tailwindcss postcss autoprefixer tailwindcss-animate
-npx tailwindcss init -p
+cd cv-screener-frontend
 
-# 4. Install Shadcn/ui
-npx shadcn@latest init
+# Add required components
 npx shadcn@latest add button card dialog input progress select table tabs toast badge avatar dropdown-menu
 
-# 5. Install additional dependencies
+# Install additional dependencies
 npm install @tanstack/react-query react-hook-form @hookform/resolvers zod
 npm install lucide-react react-dropzone react-router-dom
+```
+
+### Option B: Manual Setup
+
+#### Step 1: Create Vite Project
+
+```bash
+# Scaffold Vite project
+npm create vite@latest cv-screener-frontend
+
+# Select:
+# - Framework: React
+# - Variant: TypeScript
+
+cd cv-screener-frontend
+npm install
+```
+
+#### Step 2: Install TailwindCSS v4
+
+Following the official guide: https://tailwindcss.com/docs/installation/using-vite
+
+```bash
+# Install TailwindCSS and the Vite plugin
+npm install tailwindcss @tailwindcss/vite
+```
+
+#### Step 3: Configure Vite Plugin
+
+**File:** `vite.config.ts`
+
+```typescript
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+});
+```
+
+#### Step 4: Import Tailwind CSS
+
+**File:** `src/index.css`
+
+```css
+@import "tailwindcss";
+```
+
+#### Step 5: Install Shadcn/ui
+
+Following the official guide: https://ui.shadcn.com/docs/installation/vite
+
+```bash
+# Initialize shadcn/ui
+npx shadcn@latest init
+
+# Add required components
+npx shadcn@latest add button card dialog input progress select table tabs toast badge avatar dropdown-menu
+```
+
+#### Step 6: Install Additional Dependencies
+
+```bash
+# State management & data fetching
+npm install @tanstack/react-query
+
+# Form handling
+npm install react-hook-form @hookform/resolvers zod
+
+# Icons
+npm install lucide-react
+
+# File upload
+npm install react-dropzone
+
+# Routing
+npm install react-router-dom
+```
+
+## 3.8 Vite Configuration
+
+**File:** `frontend/vite.config.ts`
+
+```typescript
+import path from "path";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:5000",
+        changeOrigin: true,
+      },
+    },
+  },
+});
+```
+
+## 3.9 CSS Configuration (Tailwind v4)
+
+**File:** `frontend/src/index.css`
+
+```css
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  /* Score group colors */
+  --color-excellent: hsl(142 76% 36%);
+  --color-good: hsl(217 91% 60%);
+  --color-average: hsl(38 92% 50%);
+  --color-below: hsl(0 72% 51%);
+}
+
+/* Base Shadcn Variables */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    --radius: 0.5rem;
+
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
 ```
 
 ---
