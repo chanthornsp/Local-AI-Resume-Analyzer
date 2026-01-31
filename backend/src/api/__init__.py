@@ -1,1 +1,7 @@
-# API module - Flask routes and endpoints
+"""API package for Flask blueprints"""
+from .jobs import bp as jobs_bp
+from .candidates import bp as candidates_bp
+from .analysis import bp as analysis_bp
+from .export import bp as export_bp
+
+__all__ = ['jobs_bp', 'candidates_bp', 'analysis_bp', 'export_bp']

@@ -1,108 +1,124 @@
-from flask import Flask, request, jsonify
+"""
+Flask Application
+
+Main application entry point for the CV Screening API.
+Registers blueprints and initializes services.
+"""
+from flask import Flask, jsonify
 from flask_cors import CORS
-from werkzeug.utils import secure_filename
-import os
-from dotenv import load_dotenv
+from werkzeug.exceptions import HTTPException
 
-from src.services.batch_processor import BatchProcessor
-from src.services.cv_screener import CVScreener
 from src.utils.config import Config
+from src.database.db import init_db
+from src.api import jobs_bp, candidates_bp, analysis_bp, export_bp
 
-load_dotenv()
 
-app = Flask(__name__)
-# Allow both standard Vite and custom ports
-CORS(app, origins=["http://localhost:5173", "http://localhost:3000"])
-app.config.from_object(Config)
-
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({'status': 'ok', 'message': 'Server is running'})
-
-@app.route('/api/status', methods=['GET'])
-def status_check():
-    """Check Ollama connection"""
-    from src.services.ollama_client import OllamaClient
-    client = OllamaClient()
-
-    try:
-        is_available = client.check_availability()
+def create_app():
+    """Create and configure Flask application"""
+    app = Flask(__name__)
+    
+    # Load configuration
+    app.config.from_object(Config)
+    
+    # Initialize directories
+    Config.init_app()
+    
+    # Initialize database
+    init_db()
+    
+    # Enable CORS
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
+    
+    # Register blueprints
+    app.register_blueprint(jobs_bp)
+    app.register_blueprint(candidates_bp)
+    app.register_blueprint(analysis_bp)
+    app.register_blueprint(export_bp)
+    
+    # Health check endpoint
+    @app.route('/api/health', methods=['GET'])
+    def health():
+        """Health check endpoint"""
+        from src.services.ollama_client import OllamaClient
+        
+        ollama = OllamaClient()
+        ollama_available = ollama.check_availability()
+        
         return jsonify({
-            'status': 'ok' if is_available else 'error',
-            'ollama_available': is_available,
-            'model': os.getenv('OLLAMA_MODEL', 'llama3')
-        })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+            'status': 'healthy',
+            'services': {
+                'api': 'running',
+                'database': 'connected',
+                'ollama': 'available' if ollama_available else 'unavailable'
+            }
+        }), 200
+    
+    # Status endpoint
+    @app.route('/api/status', methods=['GET'])
+    def status():
+        """Get system status and statistics"""
+        from src.services.job_service import JobService
+        from src.services.ollama_client import OllamaClient
+        
+        jobs = JobService.get_all()
+        ollama = OllamaClient()
+        
+        total_candidates = sum(job.get('total_candidates', 0) for job in jobs)
+        total_analyzed = sum(job.get('excellent_count', 0) + 
+                           job.get('good_count', 0) + 
+                           job.get('average_count', 0) + 
+                           job.get('below_average_count', 0) for job in jobs)
+        
+        return jsonify({
+            'status': 'success',
+            'data': {
+                'total_jobs': len(jobs),
+                'total_candidates': total_candidates,
+                'total_analyzed': total_analyzed,
+                'ollama': {
+                    'available': ollama.check_availability(),
+                    'host': ollama.host,
+                    'model': ollama.model
+                }
+            }
+        }), 200
+    
+    # Error handlers
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(e):
+        """Handle HTTP exceptions"""
+        return jsonify({
+            'status': 'error',
+            'message': e.description,
+            'code': e.code
+        }), e.code
+    
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        """Handle general exceptions"""
+        app.logger.error(f"Unhandled exception: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'An internal error occurred',
+            'details': str(e) if app.debug else None
+        }), 500
+    
+    return app
 
-@app.route('/api/screen', methods=['POST'])
-def screen_candidates():
-    """Screen batch of CVs against job requirements"""
-    try:
-        files = request.files.getlist('cv_files')
-        job_title = request.form.get('job_title')
-        job_description = request.form.get('job_description')
-        # Handle multiple requirements via form data list
-        job_requirements = request.form.getlist('job_requirements')
-        # Fallback if passed as JSON string or single field
-        if not job_requirements and request.form.get('job_requirements'):
-             job_requirements = [request.form.get('job_requirements')]
-             
-        company_name = request.form.get('company_name')
 
-        if not all([files, job_title, job_description, company_name]):
-            return jsonify({'error': 'Missing required fields'}), 400
+# Create app instance
+app = create_app()
 
-        # Save files temporarily
-        file_paths = []
-        for file in files:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(filepath)
-            file_paths.append(filepath)
-
-        try:
-            # Process batch
-            processor = BatchProcessor()
-            results = processor.process_batch(
-                file_paths=file_paths,
-                job_title=job_title,
-                job_description=job_description,
-                job_requirements=job_requirements,
-                company_name=company_name
-            )
-
-            return jsonify({
-                'status': 'success',
-                'data': results
-            })
-        finally:
-            # Cleanup temp files
-            for fp in file_paths:
-                if os.path.exists(fp):
-                    os.remove(fp)
-
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@app.route('/api/applications/<job_id>', methods=['GET'])
-def get_applications(job_id):
-    """Get saved applications for a job"""
-    # Implementation for retrieving stored results
-    pass
-
-@app.route('/api/export/<job_id>', methods=['GET'])
-def export_results(job_id):
-    """Export results as CSV/Excel"""
-    format_type = request.args.get('format', 'csv')
-    # Implementation for export
-    pass
 
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
-    debug = os.getenv('FLASK_ENV') == 'development'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    app.run(
+        host=Config.HOST,
+        port=Config.PORT,
+        debug=Config.DEBUG
+    )
