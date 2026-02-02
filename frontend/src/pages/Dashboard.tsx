@@ -25,8 +25,8 @@ export function Dashboard() {
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary text-primary-foreground shadow-sm">
-                <Briefcase className="h-6 w-6" />
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg shadow-sm overflow-hidden">
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold tracking-tight">CV Screening System</h1>
