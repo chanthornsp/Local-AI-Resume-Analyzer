@@ -1,188 +1,274 @@
-/**
- * CVUploader Component
- * 
- * Drag-and-drop file uploader for CV files (PDF, PNG, JPG).
- */
-
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Upload, FileText, X, ClipboardPaste } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CVUploaderProps {
-  onFilesSelected: (files: File[]) => void;
-  accept?: string;
+  onUpload: (files: File[]) => void;
+  onPasteText?: (text: string) => void;
+  isUploading?: boolean;
   maxFiles?: number;
-  disabled?: boolean;
 }
 
-export function CVUploader({
-  onFilesSelected,
-  accept = '.pdf,.png,.jpg,.jpeg',
-  maxFiles = 50,
-  disabled = false,
+export function CVUploader({ 
+  onUpload, 
+  onPasteText, 
+  isUploading, 
+  maxFiles = 50 
 }: CVUploaderProps) {
-  const [isDragging, setIsDragging] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!disabled) setIsDragging(true);
-  }, [disabled]);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
+  const [isDragging, setIsDragging] = useState(false);
+  const [pastedText, setPastedText] = useState('');
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
+    setIsDragging(true);
   }, []);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
 
-      if (disabled) return;
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
 
-      const files = Array.from(e.dataTransfer.files);
-      handleFiles(files);
-    },
-    [disabled]
-  );
+    const files = Array.from(e.dataTransfer.files).filter(
+      (file) =>
+        file.type === 'application/pdf' ||
+        file.type.startsWith('image/')
+    );
 
-  const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (disabled) return;
-      const files = Array.from(e.target.files || []);
-      handleFiles(files);
-    },
-    [disabled]
-  );
-
-  const handleFiles = (files: File[]) => {
-    const validFiles = files.filter((file) => {
-      const ext = file.name.toLowerCase().split('.').pop();
-      return ['pdf', 'png', 'jpg', 'jpeg'].includes(ext || '');
-    });
-
-    if (validFiles.length > maxFiles) {
+    if (files.length + selectedFiles.length > maxFiles) {
       alert(`Maximum ${maxFiles} files allowed`);
       return;
     }
 
-    setSelectedFiles(validFiles);
-    onFilesSelected(validFiles);
+    setSelectedFiles((prev) => [...prev, ...files]);
+  }, [selectedFiles, maxFiles]);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    
+    if (files.length + selectedFiles.length > maxFiles) {
+      alert(`Maximum ${maxFiles} files allowed`);
+      return;
+    }
+
+    setSelectedFiles((prev) => [...prev, ...files]);
   };
 
   const removeFile = (index: number) => {
-    const newFiles = selectedFiles.filter((_, i) => i !== index);
-    setSelectedFiles(newFiles);
-    onFilesSelected(newFiles);
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const clearAll = () => {
-    setSelectedFiles([]);
-    onFilesSelected([]);
+  const handleUpload = () => {
+    if (selectedFiles.length > 0) {
+      onUpload(selectedFiles);
+      setSelectedFiles([]);
+    }
+  };
+
+  const handlePasteSubmit = () => {
+    if (pastedText.trim() && onPasteText) {
+      onPasteText(pastedText);
+      setPastedText('');
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
   return (
-    <div className="w-full">
-      {/* Drop Zone */}
-      <div
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-all ${
-          isDragging
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-      >
-        <input
-          type="file"
-          multiple
-          accept={accept}
-          onChange={handleFileInput}
-          disabled={disabled}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        />
+    <Tabs defaultValue="upload" className="w-full">
+      <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsTrigger value="upload">
+          <Upload className="h-4 w-4 mr-2" />
+          Upload Files
+        </TabsTrigger>
+        <TabsTrigger value="paste">
+          <ClipboardPaste className="h-4 w-4 mr-2" />
+          Paste Text
+        </TabsTrigger>
+      </TabsList>
 
-        <div className="pointer-events-none">
-          <div className="text-5xl mb-4">📄</div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-2">
-            {isDragging ? 'Drop files here' : 'Upload CV Files'}
-          </h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Drag and drop files here, or click to select
-          </p>
-          <p className="text-xs text-gray-400">
-            Supported formats: PDF, PNG, JPG (Max {maxFiles} files)
-          </p>
-        </div>
-      </div>
+      {/* File Upload Tab */}
+      <TabsContent value="upload" className="space-y-4">
+        {/* Drop Zone */}
+        <Card
+          className={cn(
+            'border-2 border-dashed transition-colors',
+            isDragging && 'border-primary bg-primary/5',
+            !isDragging && 'border-muted-foreground/25'
+          )}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <CardContent className="flex flex-col items-center justify-center py-12 px-6">
+            <div className={cn(
+              'rounded-full p-4 mb-4 transition-colors',
+              isDragging ? 'bg-primary/10' : 'bg-muted'
+            )}>
+              <Upload className={cn(
+                'h-8 w-8',
+                isDragging ? 'text-primary' : 'text-muted-foreground'
+              )} />
+            </div>
+            
+            <h3 className="text-lg font-semibold mb-2">
+              {isDragging ? 'Drop files here' : 'Upload CV Files'}
+            </h3>
+            
+            <p className="text-sm text-muted-foreground text-center mb-4">
+              Drag and drop PDF or image files here, or click to browse
+            </p>
 
-      {/* File List */}
-      {selectedFiles.length > 0 && (
-        <div className="mt-4">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-medium text-gray-700">
-              Selected Files ({selectedFiles.length})
-            </h4>
-            <button
-              onClick={clearAll}
-              className="text-xs text-red-600 hover:text-red-700 px-2 py-1 hover:bg-red-50 rounded"
-            >
-              Clear All
-            </button>
-          </div>
+            <input
+              type="file"
+              id="file-upload"
+              className="hidden"
+              multiple
+              accept=".pdf,image/*"
+              onChange={handleFileSelect}
+              disabled={isUploading}
+            />
+            
+            <label htmlFor="file-upload">
+              <Button variant="outline" asChild disabled={isUploading}>
+                <span className="cursor-pointer">Browse Files</span>
+              </Button>
+            </label>
 
-          <div className="space-y-2 max-h-60 overflow-y-auto">
-            {selectedFiles.map((file, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <span className="text-2xl">
-                    {file.name.endsWith('.pdf') ? '📕' : '🖼️'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => removeFile(index)}
-                  className="ml-3 text-gray-400 hover:text-red-600 transition-colors p-1"
-                  aria-label="Remove file"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+            <p className="text-xs text-muted-foreground mt-4">
+              Supported: PDF, PNG, JPG (Max {maxFiles} files)
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Selected Files List */}
+        {selectedFiles.length > 0 && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-sm">
+                  Selected Files ({selectedFiles.length})
+                </h4>
+                {!isUploading && (
+                  <Button
+                    size="sm"
+                    onClick={() => setSelectedFiles([])}
+                    variant="ghost"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
+                    Clear All
+                  </Button>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(file.size)}
+                        </p>
+                      </div>
+                    </div>
+                    {!isUploading && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => removeFile(index)}
+                        className="flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 pt-4 border-t">
+                <Button
+                  onClick={handleUpload}
+                  disabled={isUploading || selectedFiles.length === 0}
+                  className="w-full"
+                >
+                  {isUploading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload {selectedFiles.length} File{selectedFiles.length !== 1 ? 's' : ''}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </TabsContent>
+
+      {/* Paste Text Tab */}
+      <TabsContent value="paste" className="space-y-4">
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cv-text">Paste CV Text *</Label>
+              <Textarea
+                id="cv-text"
+                placeholder="Paste the candidate's CV text here...&#10;&#10;The AI will automatically extract the candidate's name and details during analysis."
+                value={pastedText}
+                onChange={(e) => setPastedText(e.target.value)}
+                disabled={isUploading}
+                rows={18}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                {pastedText.length} characters • Name will be extracted automatically by AI
+              </p>
+            </div>
+
+            <Button
+              onClick={handlePasteSubmit}
+              disabled={isUploading || !pastedText.trim() || pastedText.length < 50}
+              className="w-full"
+            >
+              {isUploading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <ClipboardPaste className="h-4 w-4 mr-2" />
+                  Submit CV Text {pastedText.length < 50 && `(min 50 chars)`}
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   );
 }

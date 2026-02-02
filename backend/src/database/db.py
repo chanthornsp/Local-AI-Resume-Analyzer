@@ -81,6 +81,13 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
             CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at DESC);
         ''')
+        
+        # Migration: Add file_path column if not exists
+        try:
+            conn.execute('ALTER TABLE candidates ADD COLUMN file_path TEXT')
+            print("  ✨ Added file_path column to candidates table")
+        except sqlite3.OperationalError:
+            pass # Column already exists
     
     print(f"✅ Database initialized at: {DATABASE_PATH}")
 

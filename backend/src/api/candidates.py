@@ -3,14 +3,16 @@ Candidates API Blueprint
 
 Handles candidate-related endpoints:
 - Upload CVs for a job
+- Paste CV text for a job
 - List candidates for a job
 - Get candidate details
 - Delete candidates
 """
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from werkzeug.exceptions import BadRequest
 import os
+import uuid
 from pathlib import Path
 
 from src.services.job_service import JobService
@@ -126,8 +128,11 @@ def upload_candidates(job_id):
                 continue
             
             try:
-                # Save file temporarily
-                filepath = Config.UPLOAD_FOLDER / filename
+                # Save file PERMANENTLY with unique name
+                file_ext = Path(filename).suffix
+                unique_name = f"{uuid.uuid4().hex}{file_ext}"
+                filepath = Config.UPLOAD_FOLDER / unique_name
+                
                 file.save(str(filepath))
                 
                 # Extract text
@@ -137,7 +142,8 @@ def upload_candidates(job_id):
                 candidate_id = CandidateService.create_pending(
                     job_id=job_id,
                     filename=filename,
-                    cv_text=cv_text
+                    cv_text=cv_text,
+                    file_path=unique_name
                 )
                 
                 results['uploaded'] += 1
@@ -147,9 +153,7 @@ def upload_candidates(job_id):
                     'status': 'pending'
                 })
                 
-                # Clean up temp file
-                if filepath.exists():
-                    filepath.unlink()
+                # Do not delete file anymore!
                     
             except Exception as e:
                 results['errors'].append({
@@ -169,6 +173,76 @@ def upload_candidates(job_id):
             'message': f"Uploaded {results['uploaded']} CVs, {results['failed']} failed",
             'data': results
         }), status_code
+        
+    except BadRequest as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/jobs/<int:job_id>/candidates/paste', methods=['POST'])
+def paste_candidate_text(job_id):
+    """
+    Create a candidate from pasted CV text.
+    
+    Body (JSON):
+        {
+            "cv_text": "Full CV text..."
+        }
+    
+    The candidate name will be extracted automatically by AI during analysis.
+    
+    Returns:
+        JSON with created candidate
+    """
+    try:
+        # Check if job exists
+        job = JobService.get_by_id(job_id)
+        if not job:
+            return jsonify({
+                'status': 'error',
+                'message': f'Job {job_id} not found'
+            }), 404
+        
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data or not data.get('cv_text'):
+            raise BadRequest('CV text is required')
+        
+        cv_text = data['cv_text'].strip()
+        
+        if len(cv_text) < 50:
+            raise BadRequest('CV text too short (minimum 50 characters)')
+        
+        # Create pending candidate with pasted text
+        # Use placeholder filename - will be updated after analysis
+        filename = "pasted_cv.txt"
+        
+        candidate_id = CandidateService.create_pending(
+            job_id=job_id,
+            filename=filename,
+            cv_text=cv_text
+        )
+        
+        candidate = CandidateService.get_by_id(candidate_id)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'CV text added successfully. Analyze to extract candidate details.',
+            'data': {
+                'id': candidate_id,
+                'filename': filename,
+                'status': 'pending',
+                'candidate': candidate
+            }
+        }), 201
         
     except BadRequest as e:
         return jsonify({
@@ -294,3 +368,27 @@ def get_shortlist(job_id):
             'status': 'error',
             'message': str(e)
         }), 500
+
+
+@bp.route('/candidates/<int:candidate_id>/cv', methods=['GET'])
+def get_candidate_cv(candidate_id):
+    """
+    Get (view) the original PDF CV.
+    """
+    try:
+        candidate = CandidateService.get_by_id(candidate_id)
+        if not candidate or not candidate.get('file_path'):
+            return jsonify({'status': 'error', 'message': 'CV file not found'}), 404
+            
+        path = Config.UPLOAD_FOLDER / candidate['file_path']
+        if not path.exists():
+            return jsonify({'status': 'error', 'message': 'File missing from storage'}), 404
+            
+        return send_file(
+            path,
+            mimetype='application/pdf',
+            as_attachment=False, # View in browser
+            download_name=candidate['original_filename']
+        )
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500

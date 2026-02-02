@@ -12,6 +12,10 @@ from src.services.cv_analyzer import CVAnalyzer
 
 bp = Blueprint('analysis', __name__, url_prefix='/api')
 
+# Track active analysis jobs in memory
+# This prevents "stuck" in_progress states if the server restarts or requests fail
+ACTIVE_ANALYSES = set()
+
 
 @bp.route('/jobs/<int:job_id>/analyze', methods=['POST'])
 def start_analysis(job_id):
@@ -49,6 +53,9 @@ def start_analysis(job_id):
         analyzer = CVAnalyzer()
         
         try:
+            # Mark job as active
+            ACTIVE_ANALYSES.add(job_id)
+            
             result = analyzer.analyze_batch(job_id)
             
             return jsonify({
@@ -66,7 +73,12 @@ def start_analysis(job_id):
                 'hint': 'Please ensure Ollama is running: ollama serve'
             }), 503  # Service Unavailable
             
+        finally:
+            # Always remove from active set when done (success or error)
+            ACTIVE_ANALYSES.discard(job_id)
+            
     except Exception as e:
+        ACTIVE_ANALYSES.discard(job_id)
         return jsonify({
             'status': 'error',
             'message': str(e)
@@ -101,15 +113,19 @@ def get_analysis_status(job_id):
         
         progress_percentage = (analyzed / total * 100) if total > 0 else 0
         
-        # Determine status
+        # Determine status - FIXED LOGIC WITH ACTIVE TRACKING:
         if total == 0:
             analysis_status = 'no_candidates'
-        elif pending == 0 and errors == 0:
+        elif pending == 0:
+            # All candidates processed
             analysis_status = 'complete'
-        elif pending > 0:
-            analysis_status = 'pending'
-        else:
+        elif job_id in ACTIVE_ANALYSES:
+            # Actively running in this server process
             analysis_status = 'in_progress'
+        else:
+            # Has pending items but NOT running (e.g. paused, crashed, or waiting)
+            # This allows the UI to enable the "Analyze" button so user can resume
+            analysis_status = 'pending'
         
         return jsonify({
             'status': 'success',
@@ -184,6 +200,54 @@ def retry_failed_analysis(job_id):
         return jsonify({
             'status': 'success',
             'message': f"Retry complete: {result['analyzed']} analyzed, {result['errors']} errors",
+            'data': result
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
+@bp.route('/candidates/<int:candidate_id>/analyze', methods=['POST'])
+def analyze_single_candidate(candidate_id):
+    """
+    Force re-analysis of a single candidate.
+    
+    Returns:
+        JSON with new analysis results
+    """
+    try:
+        # Get candidate
+        candidate = CandidateService.get_by_id(candidate_id)
+        if not candidate:
+            return jsonify({
+                'status': 'error',
+                'message': f'Candidate {candidate_id} not found'
+            }), 404
+            
+        # Get job
+        job = JobService.get_by_id(candidate['job_id'])
+        if not job:
+            return jsonify({
+                'status': 'error',
+                'message': f'Job {candidate["job_id"]} not found'
+            }), 404
+            
+        # Initialize analyzer
+        analyzer = CVAnalyzer()
+        
+        # Run analysis (this saves results to DB automatically)
+        result = analyzer.analyze_candidate(
+            candidate_id=candidate_id,
+            cv_text=candidate['cv_text'],
+            job=job
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Candidate re-analyzed successfully',
             'data': result
         }), 200
         

@@ -12,7 +12,7 @@ class CandidateService:
     """Service for managing candidates"""
     
     @staticmethod
-    def create_pending(job_id: int, filename: str, cv_text: str) -> int:
+    def create_pending(job_id: int, filename: str, cv_text: str, file_path: Optional[str] = None) -> int:
         """
         Create a pending candidate record (before analysis).
         
@@ -20,6 +20,7 @@ class CandidateService:
             job_id: ID of the job this candidate is applying for
             filename: Original filename of the CV
             cv_text: Extracted text from CV
+            file_path: Relative path to stored file
         
         Returns:
             int: ID of created candidate
@@ -32,10 +33,11 @@ class CandidateService:
                     original_filename, 
                     cv_text, 
                     status,
-                    category
+                    category,
+                    file_path
                 )
-                VALUES (?, ?, ?, ?, 'pending', 'pending')
-            ''', (job_id, 'Pending Analysis', filename, cv_text))
+                VALUES (?, ?, ?, ?, 'pending', 'pending', ?)
+            ''', (job_id, 'Pending Analysis', filename, cv_text, file_path))
             return cursor.lastrowid
     
     @staticmethod

@@ -7,6 +7,7 @@ Extracts structured data and categorizes candidates.
 from typing import Dict, Any
 from src.services.ollama_client import OllamaClient
 from src.services.candidate_service import CandidateService
+from src.services.settings_service import SettingsService
 import re
 
 
@@ -23,7 +24,11 @@ class CVAnalyzer:
     
     def __init__(self):
         """Initialize CV analyzer with Ollama client"""
-        self.ollama = OllamaClient()
+        settings = SettingsService.get_settings()
+        # Use configured model and custom prompt
+        self.ollama = OllamaClient(model=settings.get('ollama_model'))
+        self.custom_prompt = settings.get('system_prompt')
+        self.temperature = float(settings.get('temperature', 0.2))
     
     def analyze_candidate(self, candidate_id: int, cv_text: str, job: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -45,7 +50,7 @@ class CVAnalyzer:
             print(f"  🤖 Analyzing candidate {candidate_id}...")
             response = self.ollama.generate(
                 prompt=prompt,
-                temperature=0.3,  # Lower temperature for more consistent extraction
+                temperature=self.temperature,
                 num_predict=2000
             )
             
@@ -85,6 +90,41 @@ class CVAnalyzer:
         # Format skills
         skills_str = ', '.join(job.get('skills', []))
         
+        # Default instructions
+        default_instructions = """**INSTRUCTIONS:**
+Analyze this CV and provide a structured assessment. Extract information EXACTLY in this format:
+
+Name: [candidate's full name]
+Email: [email address if found, or "Not provided"]
+Phone: [phone number if found, or "Not provided"]
+Match Score: [number from 0-100 based on job fit]
+Experience Years: [total years of relevant experience]
+Matched Skills: [comma-separated list of skills from CV that match job requirements]
+Missing Skills: [comma-separated list of required skills NOT found in CV]
+Education: [highest degree and field, e.g., "BS Computer Science"]
+Key Strengths:
+- [strength 1 - specific achievement or skill]
+- [strength 2]
+- [strength 3]
+Concerns:
+- [concern 1 - gaps or missing qualifications]
+- [concern 2]
+Summary: [2-3 sentence overall assessment of candidate fit]
+
+
+**SCORING GUIDELINES:**
+- 85-100: Excellent match, exceeds requirements
+- 70-84: Good match, meets most requirements
+- 50-69: Average match, meets basic requirements
+- 0-49: Below requirements, significant gaps
+
+Be specific and honest. Base the score on actual qualifications, not potential."""
+
+        # Use custom prompt if configured
+        instructions = default_instructions
+        if getattr(self, 'custom_prompt', None) and len(self.custom_prompt.strip()) > 10:
+            instructions = self.custom_prompt
+
         prompt = f"""You are an expert HR recruiter analyzing a candidate's CV for a job position.
 
 **JOB DETAILS:**
@@ -106,68 +146,115 @@ Desired Skills: {skills_str}
 
 ---
 
-**INSTRUCTIONS:**
-Analyze this CV and provide a structured assessment. Extract information EXACTLY in this format:
-
-Name: [candidate's full name]
-Email: [email address if found, or "Not provided"]
-Phone: [phone number if found, or "Not provided"]
-Match Score: [number from 0-100 based on job fit]
-Experience Years: [total years of relevant experience]
-Matched Skills: [comma-separated list of skills from CV that match job requirements]
-Missing Skills: [comma-separated list of required skills NOT found in CV]
-Education: [highest degree and field, e.g., "BS Computer Science"]
-Key Strengths:
-• [strength 1 - specific achievement or skill]
-• [strength 2]
-• [strength 3]
-Concerns:
-• [concern 1 - gaps or missing qualifications]
-• [concern 2]
-Recommendation: [SHORTLIST, CONSIDER, or PASS]
-Summary: [2-3 sentence overall assessment of candidate fit]
-
-**SCORING GUIDELINES:**
-- 85-100: Excellent match, exceeds requirements
-- 70-84: Good match, meets most requirements
-- 50-69: Average match, meets basic requirements
-- 0-49: Below requirements, significant gaps
-
-Be specific and honest. Base the score on actual qualifications, not potential."""
+{instructions}"""
         
         return prompt
     
     def _parse_response(self, response: str) -> Dict[str, Any]:
         """
         Parse LLM response into structured data.
-        
-        Args:
-            response: Raw LLM response text
-            
-        Returns:
-            Dictionary with extracted fields
         """
+        # --- Pre-processing / Sanitization ---
+        # 1. Remove markdown bold/italic markers which confuse regex
+        clean_response = response.replace('**', '').replace('__', '')
+        
+        # 2. Ensure critical headers are on their own lines (fix inline headers)
+        headers = [
+            'Name:', 'Email:', 'Phone:', 'Match Score:', 'Experience Years:',
+            'Matched Skills:', 'Missing Skills:', 'Education:', 
+            'Key Strengths:', 'Concerns:', 'Recommendation:', 'Summary:'
+        ]
+        for header in headers:
+            # Add newline before header if it doesn't have one
+            # Use regex to replace "text Header:" with "text\nHeader:"
+            # CASE INSENSITIVE match for the header text
+            clean_response = re.sub(rf'(?<!\n)({re.escape(header)})', r'\n\1', clean_response, flags=re.IGNORECASE)
+            
+        # Update response variable to use sanitized version for all closures below
+        response = clean_response
+        
         def extract(pattern: str, default: str = '') -> str:
             """Extract single value using regex"""
+            # Updated to match sanitized response
             match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
             return match.group(1).strip() if match else default
         
         def extract_list(pattern: str) -> list:
-            """Extract comma-separated list"""
-            match = re.search(pattern, response, re.IGNORECASE)
+            """Extract comma-separated list (can be multiline)"""
+            # Use DOTALL to capture across newlines, stopping at double newline or next header
+            prefix = pattern.split('(')[0] # Extract "Header: " part
+            robust_pattern = rf'{prefix}(.*?)(?:\n\n|\n[A-Z][a-z]+:|$)'
+            
+            match = re.search(robust_pattern, response, re.IGNORECASE | re.DOTALL)
             if match:
-                items = match.group(1).split(',')
+                content = match.group(1)
+                
+                # Extra safety: remove any text that looks like a known header from content
+                for header in headers:
+                   if header.lower() in content.lower():
+                       # Cut off content before the next header if it leaked in
+                       idx = content.lower().find(header.lower())
+                       if idx > 0:
+                           content = content[:idx]
+                
+                # Normalize separators:
+                # 1. Replace newlines with commas (handles vertical lists)
+                content = content.replace('\n', ',')
+                
+                # 2. Replace common bullet separators (*, -, •) with commas
+                # Matches: start/space + bullet + space/end
+                # Uses regex to avoid replacing hyphens in words like "cross-functional"
+                content = re.sub(r'(?:^|\s)(?:[\*•\-])(?:\s|$)', ',', content)
+                
+                items = content.split(',')
                 return [item.strip() for item in items if item.strip()]
             return []
         
         def extract_bullets(header: str) -> list:
-            """Extract bullet point list"""
-            pattern = rf'{header}:\s*\n((?:•[^\n]+\n?)+)'
-            match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
-            if match:
-                bullets = match.group(1).split('\n')
-                return [b.strip('• ').strip() for b in bullets if b.strip()]
-            return []
+            """Extract bullet point list handling various formats"""
+            bullets = []
+            
+            # Try multiple patterns for flexibility
+            patterns = [
+                # Pattern 1: Header followed by newline then bullets
+                rf'{header}:\s*\n(.*?)(?:\n\n|\n[A-Z][a-z]+:|$)',
+                # Pattern 2: Header with content on same line or next lines  
+                rf'{header}:\s*(.*?)(?:\n\n|\n[A-Z][a-z]+:|$)',
+                # Pattern 3: Just find header and grab everything after until next section
+                rf'{header}[:\s]+(.*?)(?:Concerns|Recommendation|Summary|$)',
+            ]
+            
+            content = None
+            for pattern in patterns:
+                match = re.search(pattern, response, re.IGNORECASE | re.DOTALL)
+                if match and match.group(1).strip():
+                    content = match.group(1).strip()
+                    break
+            
+            if not content:
+                return []
+            
+            # Split by newlines first
+            lines = content.split('\n')
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                
+                # Skip if this looks like another header
+                if re.match(r'^[A-Z][a-z]+:', line):
+                    break
+                    
+                # Remove common bullet markers (•, -, *, 1., etc.)
+                cleaned = re.sub(r'^[\s•\-\*\>\+]+|^\d+[\.\)]\s*', '', line).strip()
+                
+                # Skip very short or empty results
+                if cleaned and len(cleaned) > 3:
+                    bullets.append(cleaned)
+            
+            return bullets
+
         
         # Extract score with validation
         score_str = extract(r'Match Score:\s*(\d+)', '0')
@@ -192,9 +279,17 @@ Be specific and honest. Base the score on actual qualifications, not potential."
             },
             'strengths': extract_bullets('Key Strengths'),
             'concerns': extract_bullets('Concerns'),
-            'recommendation': extract(r'Recommendation:\s*(SHORTLIST|CONSIDER|PASS)', 'PASS').upper(),
             'summary': extract(r'Summary:\s*(.+?)(?:\n\n|$)', 'No summary provided')
         }
+        
+        # Determine recommendation based on score (not LLM response)
+        # This ensures consistency between score and recommendation
+        if score >= 70:
+            analysis['recommendation'] = 'SHORTLIST'
+        elif score >= 50:
+            analysis['recommendation'] = 'CONSIDER'
+        else:
+            analysis['recommendation'] = 'PASS'
         
         # Clean up "Not provided" values
         if analysis['email'] and 'not provided' in analysis['email'].lower():
@@ -204,7 +299,13 @@ Be specific and honest. Base the score on actual qualifications, not potential."
         
         # Ensure we have at least some data
         if not analysis['strengths']:
-            analysis['strengths'] = ['Analysis incomplete']
+            # Try to create a meaningful fallback based on score
+            if score >= 70:
+                analysis['strengths'] = ['Strong match for the role based on qualifications']
+            elif score >= 50:
+                analysis['strengths'] = ['Meets basic qualifications for the role']
+            else:
+                analysis['strengths'] = ['Limited information available']
         if not analysis['matched_skills']:
             analysis['matched_skills'] = []
         

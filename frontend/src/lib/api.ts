@@ -1,293 +1,221 @@
-/**
- * API Client for CV Screening System
- * 
- * Handles all HTTP requests to the backend API.
- */
-
 import type {
-  Job,
-  CreateJobDto,
-  UpdateJobDto,
-  JobStats,
-  Candidate,
-  CandidateWithJob,
-  UploadResult,
-  AnalysisStatus,
-  AnalysisBatchResult,
-  SystemStatus,
-  HealthCheck,
-  ApiResponse,
+    Job,
+    CreateJobRequest,
+    Candidate,
+    AnalysisProgress,
+    UploadResponse,
+    JobStats,
 } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
-// ============================================
-// Helper Functions
-// ============================================
+class ApiError extends Error {
+    status: number;
 
-async function handleResponse<T>(response: Response): Promise<T> {
-  const contentType = response.headers.get('content-type');
-  
-  // Handle file downloads
-  if (contentType?.includes('text/csv') || contentType?.includes('spreadsheet')) {
-    return response.blob() as Promise<T>;
-  }
-  
-  // Handle JSON
-  const data = await response.json();
-  
-  if (!response.ok) {
-    throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
-  }
-  
-  return data;
+    constructor(status: number, message: string) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+    }
 }
 
-// ============================================
-// Health & Status
-// ============================================
+export async function fetchAPI<T>(
+    endpoint: string,
+    options: RequestInit = {}
+): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`;
 
-export async function checkHealth(): Promise<HealthCheck> {
-  const response = await fetch(`${API_BASE_URL}/health`);
-  return handleResponse<HealthCheck>(response);
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options.headers,
+        },
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new ApiError(
+            response.status,
+            errorData.error || errorData.message || 'Request failed'
+        );
+    }
+
+    const json = await response.json();
+
+    // Backend wraps responses in {status, data, ...} format
+    // Extract the data field if present, otherwise return full response
+    if (json && typeof json === 'object' && 'data' in json) {
+        return json.data as T;
+    }
+
+    return json as T;
 }
 
-export async function getSystemStatus(): Promise<SystemStatus> {
-  const response = await fetch(`${API_BASE_URL}/status`);
-  const result = await handleResponse<ApiResponse<SystemStatus>>(response);
-  return result.data!;
-}
-
-// Backward compatibility - alias for old Dashboard
-export async function checkStatus() {
-  const response = await fetch(`${API_BASE_URL}/status`);
-  const data = await response.json();
-  return {
-    status: data.status === 'success' ? 'ok' : 'error',
-    ollama_available: data.data?.ollama?.available || false,
-    model: data.data?.ollama?.model || 'llama3'
-  };
-}
-
-// Backward compatibility - for old NewScreening page
-export async function screenCandidates(params: {
-  files: File[];
-  jobTitle: string;
-  companyName: string;
-  jobDescription: string;
-  requirements: string;
-}) {
-  // Step 1: Create job
-  const jobData = {
-    title: params.jobTitle,
-    company: params.companyName,
-    description: params.jobDescription,
-    requirements: params.requirements.split('\n').filter(Boolean),
-    skills: [],
-  };
-  
-  const jobResponse = await fetch(`${API_BASE_URL}/jobs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(jobData),
-  });
-  const jobResult = await jobResponse.json();
-  const jobId = jobResult.data.id;
-  
-  // Step 2: Upload CVs
-  const formData = new FormData();
-  params.files.forEach((file) => formData.append('files', file));
-  
-  await fetch(`${API_BASE_URL}/jobs/${jobId}/candidates/upload`, {
-    method: 'POST',
-    body: formData,
-  });
-  
-  // Step 3: Start analysis
-  const analysisResponse = await fetch(`${API_BASE_URL}/jobs/${jobId}/analyze`, {
-    method: 'POST',
-  });
-  const analysisResult = await analysisResponse.json();
-  
-  // Step 4: Get candidates
-  const candidatesResponse = await fetch(`${API_BASE_URL}/jobs/${jobId}/candidates`);
-  const candidatesResult = await candidatesResponse.json();
-  
-  // Return in old format for compatibility
-  return {
-    job_info: {
-      title: params.jobTitle,
-      company: params.companyName,
-      total_applicants: candidatesResult.data?.length || 0,
-    },
-    candidates: candidatesResult.data || [],
-    statistics: analysisResult.data?.stats || {},
-  };
-}
-
-
-// ============================================
 // Jobs API
-// ============================================
+export const jobsApi = {
+    /**
+     * Get all jobs with candidate statistics
+     */
+    async getAll(): Promise<Job[]> {
+        return fetchAPI<Job[]>('/api/jobs');
+    },
 
-export async function getJobs(status?: string): Promise<Job[]> {
-  const url = new URL(`${API_BASE_URL}/jobs`);
-  if (status) url.searchParams.set('status', status);
-  
-  const response = await fetch(url.toString());
-  const result = await handleResponse<ApiResponse<Job[]>>(response);
-  return result.data!;
-}
+    /**
+     * Get a single job by ID
+     */
+    async getById(id: number): Promise<Job> {
+        return fetchAPI<Job>(`/api/jobs/${id}`);
+    },
 
-export async function getJob(jobId: number): Promise<Job> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
-  const result = await handleResponse<ApiResponse<Job>>(response);
-  return result.data!;
-}
+    /**
+     * Create a new job
+     */
+    async create(data: CreateJobRequest): Promise<Job> {
+        return fetchAPI<Job>('/api/jobs', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
 
-export async function createJob(data: CreateJobDto): Promise<Job> {
-  const response = await fetch(`${API_BASE_URL}/jobs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const result = await handleResponse<ApiResponse<Job>>(response);
-  return result.data!;
-}
+    /**
+     * Update an existing job
+     */
+    async update(id: number, data: Partial<CreateJobRequest>): Promise<Job> {
+        return fetchAPI<Job>(`/api/jobs/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
 
-export async function updateJob(jobId: number, data: UpdateJobDto): Promise<Job> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  const result = await handleResponse<ApiResponse<Job>>(response);
-  return result.data!;
-}
+    /**
+     * Delete a job
+     */
+    async delete(id: number): Promise<void> {
+        return fetchAPI<void>(`/api/jobs/${id}`, {
+            method: 'DELETE',
+        });
+    },
 
-export async function deleteJob(jobId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`, {
-    method: 'DELETE',
-  });
-  await handleResponse<ApiResponse<void>>(response);
-}
+    /**
+     * Get job statistics
+     */
+    async getStats(id: number): Promise<JobStats> {
+        return fetchAPI<JobStats>(`/api/jobs/${id}/stats`);
+    },
+};
 
-export async function getJobStats(jobId: number): Promise<JobStats> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/stats`);
-  const result = await handleResponse<ApiResponse<JobStats>>(response);
-  return result.data!;
-}
-
-// ============================================
 // Candidates API
-// ============================================
+export const candidatesApi = {
+    /**
+     * Get all candidates for a job
+     */
+    async getByJob(jobId: number, category?: string): Promise<Candidate[]> {
+        const params = category ? `?category=${category}` : '';
+        return fetchAPI<Candidate[]>(`/api/jobs/${jobId}/candidates${params}`);
+    },
 
-export async function getCandidates(
-  jobId: number,
-  filters?: { category?: string; status?: string }
-): Promise<Candidate[]> {
-  const url = new URL(`${API_BASE_URL}/jobs/${jobId}/candidates`);
-  if (filters?.category) url.searchParams.set('category', filters.category);
-  if (filters?.status) url.searchParams.set('status', filters.status);
-  
-  const response = await fetch(url.toString());
-  const result = await handleResponse<ApiResponse<Candidate[]>>(response);
-  return result.data!;
-}
+    /**
+     * Get a single candidate by ID
+     */
+    async getById(id: number): Promise<Candidate> {
+        const response = await fetchAPI<{ candidate: Candidate; job?: any }>(`/api/candidates/${id}`);
+        return response.candidate;
+    },
 
-export async function getCandidate(candidateId: number): Promise<CandidateWithJob> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`);
-  const result = await handleResponse<ApiResponse<CandidateWithJob>>(response);
-  return result.data!;
-}
+    /**
+     * Upload CVs for a job
+     */
+    async upload(jobId: number, files: File[]): Promise<UploadResponse> {
+        const formData = new FormData();
+        files.forEach((file) => {
+            formData.append('files', file);
+        });
 
-export async function deleteCandidate(candidateId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`, {
-    method: 'DELETE',
-  });
-  await handleResponse<ApiResponse<void>>(response);
-}
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/candidates/upload`, {
+            method: 'POST',
+            body: formData,
+        });
 
-export async function getShortlist(jobId: number, minScore: number = 70): Promise<Candidate[]> {
-  const url = new URL(`${API_BASE_URL}/jobs/${jobId}/candidates/shortlist`);
-  url.searchParams.set('min_score', minScore.toString());
-  
-  const response = await fetch(url.toString());
-  const result = await handleResponse<ApiResponse<Candidate[]>>(response);
-  return result.data!;
-}
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new ApiError(
+                response.status,
+                errorData.error || 'Upload failed'
+            );
+        }
 
-export async function uploadCandidates(jobId: number, files: File[]): Promise<UploadResult> {
-  const formData = new FormData();
-  files.forEach((file) => formData.append('files', file));
-  
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/candidates/upload`, {
-    method: 'POST',
-    body: formData,
-  });
-  const result = await handleResponse<ApiResponse<UploadResult>>(response);
-  return result.data!;
-}
+        const json = await response.json();
+        // Backend wraps upload response in {status, message, data: {...}}
+        return json.data || json;
+    },
 
-// ============================================
+    /**
+     * Paste CV text for a job (name will be extracted by AI)
+     */
+    async pasteText(jobId: number, cvText: string): Promise<{ id: number; filename: string; status: string }> {
+        return fetchAPI(`/api/jobs/${jobId}/candidates/paste`, {
+            method: 'POST',
+            body: JSON.stringify({
+                cv_text: cvText
+            }),
+        });
+    },
+
+    /**
+     * Re-analyze a candidate
+     */
+    async reanalyze(id: number): Promise<Candidate> {
+        return fetchAPI(`/api/candidates/${id}/analyze`, {
+            method: 'POST',
+        });
+    },
+
+    /**
+     * Delete a candidate
+     */
+    async delete(id: number): Promise<void> {
+        return fetchAPI<void>(`/api/candidates/${id}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
+     * Export candidates to CSV
+     */
+    async export(jobId: number, format: 'csv' | 'excel' = 'csv'): Promise<Blob> {
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/export?format=${format}`);
+
+        if (!response.ok) {
+            throw new ApiError(response.status, 'Export failed');
+        }
+
+        return response.blob();
+    },
+};
+
 // Analysis API
-// ============================================
+export const analysisApi = {
+    /**
+     * Start or resume analysis for a job
+     */
+    async startAnalysis(jobId: number): Promise<{ message: string; started: number }> {
+        return fetchAPI<{ message: string; started: number }>(`/api/jobs/${jobId}/analyze`, {
+            method: 'POST',
+        });
+    },
 
-export async function startAnalysis(jobId: number): Promise<AnalysisBatchResult> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/analyze`, {
-    method: 'POST',
-  });
-  const result = await handleResponse<ApiResponse<AnalysisBatchResult>>(response);
-  return result.data!;
-}
+    /**
+     * Get analysis progress/status
+     */
+    async getStatus(jobId: number): Promise<AnalysisProgress> {
+        return fetchAPI<AnalysisProgress>(`/api/jobs/${jobId}/analyze/status`);
+    },
+};
 
-export async function getAnalysisStatus(jobId: number): Promise<AnalysisStatus> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/analyze/status`);
-  const result = await handleResponse<ApiResponse<AnalysisStatus>>(response);
-  return result.data!;
-}
-
-export async function retryFailedAnalysis(
-  jobId: number,
-  candidateIds?: number[]
-): Promise<AnalysisBatchResult> {
-  const response = await fetch(`${API_BASE_URL}/jobs/${jobId}/analyze/retry`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ candidate_ids: candidateIds }),
-  });
-  const result = await handleResponse<ApiResponse<AnalysisBatchResult>>(response);
-  return result.data!;
-}
-
-// ============================================
-// Export API
-// ============================================
-
-export async function exportCandidates(
-  jobId: number,
-  options: {
-    format?: 'csv' | 'excel';
-    category?: string;
-    min_score?: number;
-  } = {}
-): Promise<Blob> {
-  const url = new URL(`${API_BASE_URL}/jobs/${jobId}/export`);
-  url.searchParams.set('format', options.format || 'csv');
-  if (options.category) url.searchParams.set('category', options.category);
-  if (options.min_score) url.searchParams.set('min_score', options.min_score.toString());
-  
-  const response = await fetch(url.toString());
-  return handleResponse<Blob>(response);
-}
-
-export function downloadBlob(blob: Blob, filename: string) {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-}
+// Export all as default
+export default {
+    jobs: jobsApi,
+    candidates: candidatesApi,
+    analysis: analysisApi,
+};

@@ -1,242 +1,260 @@
-/**
- * JobForm Component
- * 
- * Form for creating and editing jobs.
- */
-
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
+import type { CreateJobRequest } from '@/lib/types';
 import { useState } from 'react';
-import type { Job, CreateJobDto } from '@/lib/types';
+
+const jobFormSchema = z.object({
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  company: z.string().min(2, 'Company name is required'),
+  description: z.string().min(20, 'Description must be at least 20 characters'),
+  location: z.string().optional(),
+  salary_range: z.string().optional(),
+});
+
+type JobFormValues = z.infer<typeof jobFormSchema>;
 
 interface JobFormProps {
-  job?: Job | null;
-  onSubmit: (data: CreateJobDto) => void;
-  onCancel: () => void;
-  isLoading?: boolean;
+  onSubmit: (data: CreateJobRequest) => void;
+  onCancel?: () => void;
+  defaultValues?: Partial<CreateJobRequest>;
+  isSubmitting?: boolean;
 }
 
-export function JobForm({ job, onSubmit, onCancel, isLoading = false }: JobFormProps) {
-  const [formData, setFormData] = useState({
-    title: job?.title || '',
-    company: job?.company || '',
-    description: job?.description || '',
-    requirements: job?.requirements?.join('\n') || '',
-    skills: job?.skills?.join(', ') || '',
-    location: job?.location || '',
-    salary_range: job?.salary_range || '',
+export function JobForm({ onSubmit, onCancel, defaultValues, isSubmitting }: JobFormProps) {
+  const [requirements, setRequirements] = useState<string[]>(defaultValues?.requirements || []);
+  const [requirementInput, setRequirementInput] = useState('');
+  
+  const [skills, setSkills] = useState<string[]>(defaultValues?.skills || []);
+  const [skillInput, setSkillInput] = useState('');
+
+  const form = useForm<JobFormValues>({
+    resolver: zodResolver(jobFormSchema),
+    defaultValues: {
+      title: defaultValues?.title || '',
+      company: defaultValues?.company || '',
+      description: defaultValues?.description || '',
+      location: defaultValues?.location || '',
+      salary_range: defaultValues?.salary_range || '',
+    },
   });
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const handleSubmit = (values: JobFormValues) => {
+    onSubmit({
+      ...values,
+      requirements,
+      skills,
+    });
+  };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+  const addRequirement = () => {
+    if (requirementInput.trim() && !requirements.includes(requirementInput.trim())) {
+      setRequirements([...requirements, requirementInput.trim()]);
+      setRequirementInput('');
     }
   };
 
-  const validate = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.title.trim()) {
-      newErrors.title = 'Job title is required';
-    }
-    if (!formData.company.trim()) {
-      newErrors.company = 'Company name is required';
-    }
-    if (!formData.description.trim()) {
-      newErrors.description = 'Job description is required';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const removeRequirement = (index: number) => {
+    setRequirements(requirements.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const addSkill = () => {
+    if (skillInput.trim() && !skills.includes(skillInput.trim())) {
+      setSkills([...skills, skillInput.trim()]);
+      setSkillInput('');
+    }
+  };
 
-    if (!validate()) return;
-
-    const submitData: CreateJobDto = {
-      title: formData.title.trim(),
-      company: formData.company.trim(),
-      description: formData.description.trim(),
-      requirements: formData.requirements
-        .split('\n')
-        .map(r => r.trim())
-        .filter(Boolean),
-      skills: formData.skills
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean),
-      location: formData.location.trim() || undefined,
-      salary_range: formData.salary_range.trim() || undefined,
-    };
-
-    onSubmit(submitData);
+  const removeSkill = (index: number) => {
+    setSkills(skills.filter((_, i) => i !== index));
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Title */}
-      <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-          Job Title <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          id="title"
-          name="title"
-          value={formData.title}
-          onChange={handleChange}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-            errors.title ? 'border-red-500' : 'border-gray-300'
-          }`}
-          placeholder="e.g. Senior React Developer"
-          disabled={isLoading}
-        />
-        {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
-      </div>
-
-      {/* Company */}
-      <div>
-        <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
-          Company Name <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          id="company"
-          name="company"
-          value={formData.company}
-          onChange={handleChange}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-            errors.company ? 'border-red-500' : 'border-gray-300'
-          }`}
-          placeholder="e.g. Tech Innovations Inc."
-          disabled={isLoading}
-        />
-        {errors.company && <p className="mt-1 text-sm text-red-600">{errors.company}</p>}
-      </div>
-
-      {/* Description */}
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-          Job Description <span className="text-red-500">*</span>
-        </label>
-        <textarea
-          id="description"
-          name="description"
-          value={formData.description}
-          onChange={handleChange}
-          rows={4}
-          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-            errors.description ? 'border-red-500' : 'border-gray-300'
-          }`}
-          placeholder="Describe the role, responsibilities, and what you're looking for..."
-          disabled={isLoading}
-        />
-        {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
-      </div>
-
-      {/* Requirements */}
-      <div>
-        <label htmlFor="requirements" className="block text-sm font-medium text-gray-700 mb-1">
-          Requirements
-        </label>
-        <textarea
-          id="requirements"
-          name="requirements"
-          value={formData.requirements}
-          onChange={handleChange}
-          rows={4}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="One requirement per line, e.g.&#10;5+ years React experience&#10;TypeScript proficiency&#10;Strong problem-solving skills"
-          disabled={isLoading}
-        />
-        <p className="mt-1 text-xs text-gray-500">Enter one requirement per line</p>
-      </div>
-
-      {/* Skills */}
-      <div>
-        <label htmlFor="skills" className="block text-sm font-medium text-gray-700 mb-1">
-          Required Skills
-        </label>
-        <input
-          type="text"
-          id="skills"
-          name="skills"
-          value={formData.skills}
-          onChange={handleChange}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="e.g. React, TypeScript, Redux, Node.js, SQL"
-          disabled={isLoading}
-        />
-        <p className="mt-1 text-xs text-gray-500">Comma-separated skills</p>
-      </div>
-
-      {/* Location & Salary (Row) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Location */}
-        <div>
-          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-            Location
-          </label>
-          <input
-            type="text"
-            id="location"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="e.g. New York, NY (Remote)"
-            disabled={isLoading}
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+        {/* Basic Information */}
+        <div className="space-y-4">
+          <FormField
+            control={form.control}
+            name="title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Job Title *</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Senior Frontend Developer" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
+
+          <FormField
+            control={form.control}
+            name="company"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Company *</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Tech Corp" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Job Description *</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Describe the role, responsibilities, and what you're looking for..."
+                    className="min-h-[120px]"
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Provide a detailed description to help the AI better match candidates.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Location</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., San Francisco, CA" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="salary_range"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Salary Range</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., $80k - $120k" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
-        {/* Salary Range */}
-        <div>
-          <label htmlFor="salary_range" className="block text-sm font-medium text-gray-700 mb-1">
-            Salary Range
-          </label>
-          <input
-            type="text"
-            id="salary_range"
-            name="salary_range"
-            value={formData.salary_range}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="e.g. $100,000 - $150,000"
-            disabled={isLoading}
-          />
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isLoading}
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          {isLoading ? (
-            <>
-              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>{job ? 'Update Job' : 'Create Job'}</>
+        {/* Requirements */}
+        <div className="space-y-3">
+          <FormLabel>Requirements *</FormLabel>
+          <FormDescription>
+            Add key qualifications and requirements for this position.
+          </FormDescription>
+          <div className="flex gap-2">
+            <Input
+              placeholder="e.g., Bachelor's degree in Computer Science"
+              value={requirementInput}
+              onChange={(e) => setRequirementInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addRequirement())}
+            />
+            <Button type="button" onClick={addRequirement} variant="outline">
+              Add
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {requirements.map((req, index) => (
+              <Badge key={index} variant="secondary" className="text-sm py-1.5 px-3">
+                {req}
+                <button
+                  type="button"
+                  onClick={() => removeRequirement(index)}
+                  className="ml-2 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+          {requirements.length === 0 && (
+            <p className="text-sm text-destructive">At least one requirement is needed</p>
           )}
-        </button>
-      </div>
-    </form>
+        </div>
+
+        {/* Skills */}
+        <div className="space-y-3">
+          <FormLabel>Required Skills *</FormLabel>
+          <FormDescription>
+            Add technical and soft skills needed for this role.
+          </FormDescription>
+          <div className="flex gap-2">
+            <Input
+              placeholder="e.g., React, TypeScript, Node.js"
+              value={skillInput}
+              onChange={(e) => setSkillInput(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
+            />
+            <Button type="button" onClick={addSkill} variant="outline">
+              Add
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {skills.map((skill, index) => (
+              <Badge key={index} variant="default" className="text-sm py-1.5 px-3">
+                {skill}
+                <button
+                  type="button"
+                  onClick={() => removeSkill(index)}
+                  className="ml-2 hover:text-destructive-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            ))}
+          </div>
+          {skills.length === 0 && (
+            <p className="text-sm text-destructive">At least one skill is needed</p>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+          <Button 
+            type="submit" 
+            disabled={isSubmitting || requirements.length === 0 || skills.length === 0}
+          >
+            {isSubmitting ? 'Saving...' : defaultValues ? 'Update Job' : 'Create Job'}
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 }

@@ -10,7 +10,7 @@ from werkzeug.exceptions import HTTPException
 
 from src.utils.config import Config
 from src.database.db import init_db
-from src.api import jobs_bp, candidates_bp, analysis_bp, export_bp
+from src.api import jobs_bp, candidates_bp, analysis_bp, export_bp, settings_bp
 
 
 def create_app():
@@ -40,6 +40,7 @@ def create_app():
     app.register_blueprint(candidates_bp)
     app.register_blueprint(analysis_bp)
     app.register_blueprint(export_bp)
+    app.register_blueprint(settings_bp)
     
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])

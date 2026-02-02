@@ -19,15 +19,26 @@ class OllamaClient:
         
         Args:
             host: Ollama server URL (default: from env or localhost:11434)
-            model: Model name (default: from env or llama3)
+            model: Model name (default: from settings -> env -> llama3)
             timeout: Request timeout in seconds (default: from env or 120)
         """
+        # Try to load dynamic settings if model is not explicit
+        settings_model = None
+        try:
+            from src.services.settings_service import SettingsService
+            settings = SettingsService.get_settings()
+            settings_model = settings.get('ollama_model')
+        except Exception:
+            pass # Fallback to env/default
+
         self.host = host or os.getenv('OLLAMA_HOST', 'http://localhost:11434')
-        self.model = model or os.getenv('OLLAMA_MODEL', 'llama3')
+        self.model = model or settings_model or os.getenv('OLLAMA_MODEL', 'llama3')
         self.timeout = timeout or int(os.getenv('OLLAMA_TIMEOUT', 120))
         self.generate_url = f"{self.host}/api/generate"
         self.tags_url = f"{self.host}/api/tags"
         self.max_retries = 3
+        
+        print(f"  🤖 OllamaClient initialized with model: {self.model}")
 
     def generate(self, prompt: str, **kwargs) -> str:
         """

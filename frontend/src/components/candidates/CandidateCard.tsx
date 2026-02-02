@@ -1,142 +1,171 @@
-/**
- * CandidateCard Component
- * 
- * Displays a candidate summary card with score, category, and key information.
- */
-
-import { Link } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Mail, Phone, Briefcase, GraduationCap, TrendingUp, Award } from 'lucide-react';
 import type { Candidate } from '@/lib/types';
-import { getCategoryBadgeClass, getCategoryIcon, getRecommendationBadge } from '@/lib/utils';
+import { Link } from 'react-router';
 
 interface CandidateCardProps {
   candidate: Candidate;
-  jobId: number;
-  showActions?: boolean;
-  onDelete?: (candidateId: number) => void;
 }
 
-export function CandidateCard({ candidate, jobId, showActions = true, onDelete }: CandidateCardProps) {
-  const recommendationBadge = getRecommendationBadge(candidate.recommendation);
-  const scoreColor = candidate.score >= 85 ? 'text-green-600' :
-                     candidate.score >= 70 ? 'text-blue-600' :
-                     candidate.score >= 50 ? 'text-amber-600' : 'text-red-600';
+const categoryColors = {
+  excellent: 'bg-green-100 text-green-800 border-green-300',
+  good: 'bg-blue-100 text-blue-800 border-blue-300',
+  average: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+  below_average: 'bg-gray-100 text-gray-800 border-gray-300',
+  pending: 'bg-slate-100 text-slate-800 border-slate-300',
+};
+
+const recommendationColors = {
+  SHORTLIST: 'bg-green-500',
+  CONSIDER: 'bg-blue-500',
+  PASS: 'bg-gray-500',
+  PENDING: 'bg-slate-500',
+};
+
+export function CandidateCard({ candidate }: CandidateCardProps) {
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return 'text-green-600';
+    if (score >= 70) return 'text-blue-600';
+    if (score >= 50) return 'text-yellow-600';
+    return 'text-gray-600';
+  };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all duration-200">
-      <div className="p-5">
-        {/* Header with Name and Score */}
-        <div className="flex items-start justify-between mb-3">
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader>
+        <div className="flex items-start justify-between">
           <div className="flex-1">
-            <Link
-              to={`/candidates/${candidate.id}`}
-              className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors block"
-            >
-              {candidate.name}
-            </Link>
-            {candidate.email && (
-              <p className="text-sm text-gray-600 mt-0.5">{candidate.email}</p>
-            )}
+            <CardTitle className="text-lg mb-1">{candidate.name}</CardTitle>
+            <CardDescription className="space-y-1">
+              {candidate.email && (
+                <div className="flex items-center gap-1.5 text-sm">
+                  <Mail className="h-3.5 w-3.5" />
+                  {candidate.email}
+                </div>
+              )}
+              {candidate.phone && (
+                <div className="flex items-center gap-1.5 text-sm">
+                  <Phone className="h-3.5 w-3.5" />
+                  {candidate.phone}
+                </div>
+              )}
+            </CardDescription>
           </div>
           
-          {/* Score Badge */}
-          <div className="flex flex-col items-end gap-1">
-            <div className={`text-2xl font-bold ${scoreColor}`}>
-              {candidate.score}
-            </div>
-            <span className="text-xs text-gray-500">/ 100</span>
-          </div>
-        </div>
-
-        {/* Category and Recommendation */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getCategoryBadgeClass(candidate.category)}`}>
-            {getCategoryIcon(candidate.category)} {candidate.category.replace('_', ' ')}
-          </span>
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${recommendationBadge.class}`}>
-            {recommendationBadge.label}
-          </span>
-        </div>
-
-        {/* Experience and Contact */}
-        <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-3">
-          <div className="flex items-center gap-1">
-            <span>💼</span>
-            <span>{candidate.experience_years} years exp.</span>
-          </div>
-          {candidate.phone && (
-            <div className="flex items-center gap-1">
-              <span>📱</span>
-              <span>{candidate.phone}</span>
+          {candidate.status === 'analyzed' && (
+            <div className="text-right">
+              <div className={`text-3xl font-bold ${getScoreColor(candidate.score)}`}>
+                {candidate.score}
+              </div>
+              <div className="text-xs text-muted-foreground">Match Score</div>
             </div>
           )}
         </div>
 
-        {/* Matched Skills */}
-        {candidate.matched_skills && candidate.matched_skills.length > 0 && (
-          <div className="mb-3">
-            <p className="text-xs font-medium text-gray-500 mb-1.5">Matched Skills</p>
-            <div className="flex flex-wrap gap-1.5">
-              {candidate.matched_skills.slice(0, 4).map((skill, index) => (
-                <span
-                  key={index}
-                  className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs"
-                >
-                  {skill}
-                </span>
-              ))}
-              {candidate.matched_skills.length > 4 && (
-                <span className="px-2 py-0.5 bg-gray-50 text-gray-600 rounded text-xs">
-                  +{candidate.matched_skills.length - 4}
-                </span>
-              )}
+        <div className="flex gap-2 mt-3">
+          <Badge className={categoryColors[candidate.category]}>
+            {candidate.category.replace('_', ' ')}
+          </Badge>
+          <Badge 
+            className={`${recommendationColors[candidate.recommendation]} text-white`}
+          >
+            {candidate.recommendation}
+          </Badge>
+        </div>
+      </CardHeader>
+
+      {candidate.status === 'analyzed' && (
+        <CardContent className="space-y-4">
+          {/* Experience and Education */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+              <span>{candidate.experience_years} years exp.</span>
             </div>
+            {candidate.education?.degree && (
+              <div className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                <span className="truncate">{candidate.education.degree}</span>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* Strengths */}
-        {candidate.strengths && candidate.strengths.length > 0 && (
-          <div className="mb-3">
-            <p className="text-xs font-medium text-gray-500 mb-1">Key Strength</p>
-            <p className="text-sm text-gray-700 line-clamp-2">
-              • {candidate.strengths[0]}
-            </p>
-          </div>
-        )}
+          {/* Skills Match */}
+          {candidate.matched_skills.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-sm font-medium mb-2">
+                <Award className="h-4 w-4 text-green-600" />
+                <span>Matched Skills ({candidate.matched_skills.length})</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {candidate.matched_skills.slice(0, 4).map((skill, idx) => (
+                  <Badge key={idx} variant="outline" className="text-xs">
+                    {skill}
+                  </Badge>
+                ))}
+                {candidate.matched_skills.length > 4 && (
+                  <Badge variant="outline" className="text-xs">
+                    +{candidate.matched_skills.length - 4} more
+                  </Badge>
+                )}
+              </div>
+            </div>
+          )}
 
-        {/* Summary */}
-        {candidate.summary && (
-          <div className="mb-4 pb-4 border-b border-gray-100">
-            <p className="text-sm text-gray-600 line-clamp-2">
+          {/* Summary */}
+          {candidate.summary && (
+            <p className="text-sm text-muted-foreground line-clamp-3">
               {candidate.summary}
             </p>
-          </div>
-        )}
+          )}
 
-        {/* Actions */}
-        {showActions && (
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">
-              📄 {candidate.original_filename}
-            </span>
-            <div className="flex gap-2">
-              {onDelete && (
-                <button
-                  onClick={() => onDelete(candidate.id)}
-                  className="text-sm text-red-600 hover:text-red-700 px-2 py-1 hover:bg-red-50 rounded transition-colors"
-                >
-                  Delete
-                </button>
-              )}
-              <Link
-                to={`/candidates/${candidate.id}`}
-                className="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
-              >
-                View Full Profile
-              </Link>
+          {/* View Details Button */}
+          <Link to={`/candidates/${candidate.id}`} className="block">
+            <Button variant="outline" size="sm" className="w-full">
+              View Full Profile
+            </Button>
+          </Link>
+        </CardContent>
+      )}
+
+      {candidate.status === 'pending' && (
+        <CardContent>
+          <div className="flex items-center justify-center py-6 text-muted-foreground">
+            <div className="text-center space-y-3">
+              <div className="relative inline-flex items-center justify-center">
+                {/* Pulsing background circles */}
+                <div className="absolute inset-0 animate-ping">
+                  <div className="w-12 h-12 rounded-full bg-blue-400 opacity-75"></div>
+                </div>
+                <div className="absolute inset-0">
+                  <div className="w-12 h-12 rounded-full bg-blue-500 opacity-50 animate-pulse"></div>
+                </div>
+                {/* Icon */}
+                <div className="relative inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100">
+                  <TrendingUp className="h-6 w-6 text-blue-600" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Analyzing with AI...</p>
+                <p className="text-xs text-muted-foreground mt-1">Extracting candidate details</p>
+              </div>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </CardContent>
+      )}
+
+      {candidate.status === 'error' && (
+        <CardContent>
+          <div className="text-center py-4 text-sm text-destructive">
+            <p>Analysis Failed</p>
+            {candidate.error_message && (
+              <p className="text-xs mt-1">{candidate.error_message}</p>
+            )}
+          </div>
+        </CardContent>
+      )}
+    </Card>
   );
 }
