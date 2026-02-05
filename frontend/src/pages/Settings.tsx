@@ -38,6 +38,71 @@ Summary: [2-3 sentence overall assessment of candidate fit]
 
 Be specific and honest. Base the score on actual qualifications, not potential.`;
 
+const PROMPT_PRESETS: Record<string, { label: string; prompt: string }> = {
+    default: {
+        label: "Twist Default (Standard)",
+        prompt: DEFAULT_PROMPT_TEMPLATE
+    },
+    senior: {
+        label: "Senior/Lead Role Pattern",
+        prompt: `**INSTRUCTIONS:**
+Analyze this CV for a SENIOR/LEADERSHIP position. Focus on system design, mentorship, and business impact. Extract information EXACTLY in this format:
+
+Name: [candidate's full name]
+Email: [email address]
+Phone: [phone number]
+Match Score: [0-100, be strict - look for proven leadership]
+Experience Years: [total years]
+Matched Skills: [technical and leadership skills]
+Missing Skills: [critical leadership or scale gaps]
+Education: [degrees]
+Key Strengths:
+- [Architecture/Design capability]
+- [Team Mentorship/Leadership]
+- [Business Impact/ROI]
+Concerns:
+- [Lack of strategic scope]
+- [Too operational/tactical]
+Summary: [Assessment of candidate's readiness for high-level responsibility]
+
+**SCORING GUIDELINES:**
+- 90-100: Transformational Leader
+- 75-89: Solid Senior Application Leader
+- 0-74: Lack of needed seniority
+
+Be critical about specific senior-level impact.`
+    },
+    creative: {
+        label: "Creative / Soft Skills",
+        prompt: `**INSTRUCTIONS:**
+Analyze this CV with a focus on CULTURE FIT and SOFT SKILLS. Extract information EXACTLY in this format:
+
+Name: [candidate's full name]
+Email: [email address]
+Phone: [phone number]
+Match Score: [0-100 based on culture potential]
+Experience Years: [total years]
+Matched Skills: [soft skills and core competencies]
+Missing Skills: [culture/communication gaps]
+Education: [degrees]
+Key Strengths:
+- [Communication style]
+- [Collaboration evidence]
+- [Adaptability/Growth mindset]
+Concerns:
+- [Red flags in communication]
+- [Rigidness]
+Summary: [Assessment of how well this person would fit a dynamic team]
+
+**SCORING GUIDELINES:**
+- 80-100: Great Cultural Add
+- 60-79: Acceptable
+- 0-59: Potential Friction
+
+Focus on the 'human' side of the resume.`
+    }
+};
+
 export function SettingsPage() {
     const navigate = useNavigate();
     const { data, isLoading } = useSettings();
@@ -65,10 +130,11 @@ export function SettingsPage() {
             onError: (err: any) => toast.error('Failed to save settings: ' + (err.message || 'Unknown error'))
         });
     };
-    
-    const handleResetPrompt = () => {
-        if (confirm('Replace current prompt with default template?')) {
-            setPrompt(DEFAULT_PROMPT_TEMPLATE);
+
+    const applyPreset = (key: string) => {
+        if (PROMPT_PRESETS[key]) {
+             setPrompt(PROMPT_PRESETS[key].prompt);
+             toast.info(`Loaded "${PROMPT_PRESETS[key].label}" preset`);
         }
     };
     
@@ -183,9 +249,18 @@ export function SettingsPage() {
                         <CardTitle>Prompt Tuning</CardTitle>
                         <CardDescription>Customize the analysis instructions</CardDescription>
                      </div>
-                     <Button variant="outline" size="sm" onClick={handleResetPrompt}>
-                        <RotateCcw className="h-4 w-4 mr-2" /> Load Default
-                     </Button>
+                     <div className="w-[200px]">
+                        <Select onValueChange={applyPreset}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Load Preset..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {Object.entries(PROMPT_PRESETS).map(([key, value]) => (
+                                    <SelectItem key={key} value={key}>{value.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                     </div>
                 </div>
              </CardHeader>
              <CardContent>

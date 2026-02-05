@@ -17,7 +17,33 @@ A local Python application that helps recruiters screen and shortlist candidates
 - ✅ **Real-time Progress** - Live screening progress with batch analytics
 - ✅ **Web API** - Flask-based REST API
 - ✅ **CLI Tool** - Command-line interface for automation
+- ✅ **Job Management** - Create, Edit, and Delete job postings
+- ✅ **AI Settings** - Customizable AI temperature and parameters
 - ✅ **Modular Architecture** - Clean, extensible code
+
+## 🚀 Quick Start
+
+1. **Prerequisites**: Ensure you have Python 3.8+, Node.js 18+, and [Ollama](https://ollama.com/) installed.
+2. **Install Dependencies**:
+   ```bash
+   # Backend
+   cd backend
+   python -m venv venv
+   # Windows: venv\Scripts\activate
+   # Linux/Mac: source venv/bin/activate
+   pip install -r requirements.txt
+
+   # Frontend
+   cd ../frontend
+   npm install
+   cd ..
+   ```
+3. **Run the App**:
+   ```bash
+   # Run explicitly from the root directory
+   python start.py
+   ```
+   This script will automatically start both the Backend (Flask) and Frontend (Vite) servers.
 
 ## 🛠️ Technology Stack
 

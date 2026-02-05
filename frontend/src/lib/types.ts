@@ -46,6 +46,7 @@ export interface Candidate {
     strengths: string[];
     concerns: string[];
     summary: string;
+    salary_estimate?: string;
     cv_text: string;
     original_filename: string;
     file_path?: string;

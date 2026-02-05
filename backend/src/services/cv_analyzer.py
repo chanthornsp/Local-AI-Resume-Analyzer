@@ -47,7 +47,7 @@ class CVAnalyzer:
             prompt = self._build_prompt(cv_text, job)
             
             # Get LLM response
-            print(f"  🤖 Analyzing candidate {candidate_id}...")
+            print(f"  🤖 Analyzing candidate {candidate_id}...", flush=True)
             response = self.ollama.generate(
                 prompt=prompt,
                 temperature=self.temperature,
@@ -60,10 +60,20 @@ class CVAnalyzer:
             # Categorize by score
             analysis['category'] = self._get_category(analysis['score'])
             
+            # Calculate salary based on score and job salary range
+            # This overrides the LLM estimate to ensure consistency with the score and job budget
+            if job.get('salary_range'):
+                calculated_salary = self._calculate_salary_estimate(analysis['score'], job['salary_range'])
+                if calculated_salary:
+                    analysis['salary_estimate'] = calculated_salary
+            
             # Save to database
             CandidateService.update_analysis(candidate_id, analysis)
             
-            print(f"  ✅ {analysis['name']} - Score: {analysis['score']}/100 ({analysis['category']})")
+            print(f"  ✅ [QUEUE] COMPLETED: {analysis['name']}", flush=True)
+            print(f"     Score: {analysis['score']}/100 ({analysis['category']})", flush=True)
+            print(f"     Estimated Salary: {analysis.get('salary_estimate', 'N/A')}", flush=True)
+            print(f"     --------------------------------------------------", flush=True)
             
             return analysis
             
@@ -110,6 +120,7 @@ Concerns:
 - [concern 1 - gaps or missing qualifications]
 - [concern 2]
 Summary: [2-3 sentence overall assessment of candidate fit]
+Salary Estimate: [Estimate salary range in USD/month based on candidate level, job budget, and Cambodia market rates]
 
 
 **SCORING GUIDELINES:**
@@ -138,6 +149,12 @@ Required Qualifications:
 {requirements_list}
 
 Desired Skills: {skills_str}
+Salary Range: {job.get('salary_range', 'Not specified')}
+
+**SALARY ESTIMATION CONTEXT:**
+- Base the estimate on the candidate's experience, skills match, and the job's salary range (if provided).
+- Consider the market rates for this role in **Cambodia**.
+- If the candidate is overqualified/underqualified, adjust the estimate accordingly within or outside the job's range.
 
 ---
 
@@ -162,7 +179,7 @@ Desired Skills: {skills_str}
         headers = [
             'Name:', 'Email:', 'Phone:', 'Match Score:', 'Experience Years:',
             'Matched Skills:', 'Missing Skills:', 'Education:', 
-            'Key Strengths:', 'Concerns:', 'Recommendation:', 'Summary:'
+            'Key Strengths:', 'Concerns:', 'Recommendation:', 'Summary:', 'Salary Estimate:'
         ]
         for header in headers:
             # Add newline before header if it doesn't have one
@@ -279,7 +296,8 @@ Desired Skills: {skills_str}
             },
             'strengths': extract_bullets('Key Strengths'),
             'concerns': extract_bullets('Concerns'),
-            'summary': extract(r'Summary:\s*(.+?)(?:\n\n|$)', 'No summary provided')
+            'summary': extract(r'Summary:\s*(.+?)(?:\n\n|$)', 'No summary provided'),
+            'salary_estimate': extract(r'Salary Estimate:\s*(.+?)(?:\n|$)', 'Not available')
         }
         
         # Determine recommendation based on score (not LLM response)
@@ -329,6 +347,57 @@ Desired Skills: {skills_str}
             if score >= threshold:
                 return category
         return 'below_average'
+
+    def _calculate_salary_estimate(self, score: int, salary_range: str) -> str:
+        """
+        Calculate estimated salary based on match score and job salary range.
+        
+        Args:
+            score: Candidate match score (0-100)
+            salary_range: Job salary range string (e.g. "$1000 - $2000")
+            
+        Returns:
+             Estimated salary string or None if cannot be calculated
+        """
+        if not salary_range or salary_range.lower() in ['not specified', 'negotiable']:
+            return None
+            
+        try:
+            # Extract numbers from range string
+            # Handles "$1,000 - $2,000", "1000-2000", etc.
+            matches = re.findall(r'(\d+(?:,\d+)*(?:\.\d+)?)', salary_range)
+            if len(matches) >= 2:
+                # Parse min and max values
+                vals = [float(m.replace(',', '')) for m in matches[:2]]
+                min_sal = min(vals)
+                max_sal = max(vals)
+                
+                # Logic:
+                # - Score >= 50: Linear mapping from Min to Max salary
+                #   (50 -> Min, 100 -> Max)
+                # - Score < 50: Discounted Min salary 
+                #   (0 -> 80% Min, 49 -> 99% Min)
+                
+                if score >= 50:
+                    # Normalize score 50-100 to 0-1
+                    ratio = (score - 50) / 50
+                    estimate = min_sal + (max_sal - min_sal) * ratio
+                else:
+                    # Normalize score 0-50 to 0-1
+                    ratio = score / 50
+                    # Range from 80% to 100% of min salary
+                    estimate = min_sal * (0.8 + (0.2 * ratio))
+                
+                # Round to nice number (nearest 50)
+                estimate = round(estimate / 50) * 50
+                
+                return f"${int(estimate):,}"
+                
+        except Exception as e:
+            print(f"Error calculating salary: {e}")
+            return None
+        
+        return None
     
     def analyze_batch(self, job_id: int) -> Dict[str, Any]:
         """
@@ -359,8 +428,8 @@ Desired Skills: {skills_str}
                 'message': 'No pending candidates to analyze'
             }
         
-        print(f"\n🔍 Analyzing {len(pending_candidates)} candidates for: {job['title']}")
-        print("=" * 60)
+        print(f"\n🔍 Analyzing {len(pending_candidates)} candidates for: {job['title']}", flush=True)
+        print("=" * 60, flush=True)
         
         analyzed_count = 0
         error_count = 0

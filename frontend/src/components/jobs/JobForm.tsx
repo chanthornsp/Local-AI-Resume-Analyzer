@@ -17,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import type { CreateJobRequest } from '@/lib/types';
 import { useState } from 'react';
+import { SalaryEstimator } from './SalaryEstimator';
 
 const jobFormSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -158,9 +159,12 @@ export function JobForm({ onSubmit, onCancel, defaultValues, isSubmitting }: Job
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Salary Range</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., $80k - $120k" {...field} />
-                  </FormControl>
+                   <div className="flex gap-2">
+                    <FormControl>
+                      <Input placeholder="e.g., $800 - $1,500" {...field} />
+                    </FormControl>
+                    <SalaryEstimator onApply={(val) => form.setValue('salary_range', val)} />
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

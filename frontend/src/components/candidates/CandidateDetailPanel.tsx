@@ -16,7 +16,9 @@ import {
   XCircle,
   RefreshCw,
   Trash2,
-  FileText
+  FileText,
+  Banknote,
+  Clock 
 } from 'lucide-react';
 
 interface CandidateDetailPanelProps {
@@ -94,165 +96,174 @@ export function CandidateDetailPanel({ candidateId }: CandidateDetailPanelProps)
   };
 
   return (
-    <div className="animate-in fade-in duration-300 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)] pr-2">
-      {/* Header Info */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">{candidate.name || candidate.original_filename}</h2>
-          <div className="flex flex-col gap-1">
-            {candidate.email && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-3 w-3" />
-                <a href={`mailto:${candidate.email}`} className="hover:text-primary transition-colors">
-                  {candidate.email}
-                </a>
+    <div className="h-full flex flex-col bg-white">
+      {/* Fixed Header */}
+      <div className="p-4 border-b flex-none bg-white">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0 pr-4">
+              <h2 className="text-xl font-bold truncate disabled:opacity-50" title={candidate.name}>
+                  {candidate.name || candidate.original_filename}
+              </h2>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                {candidate.email && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Mail className="h-3.5 w-3.5" />
+                    <a href={`mailto:${candidate.email}`} className="hover:text-primary transition-colors truncate max-w-[200px]">
+                      {candidate.email}
+                    </a>
+                  </div>
+                )}
+                {candidate.phone && (
+                  <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Phone className="h-3.5 w-3.5" />
+                    <a href={`tel:${candidate.phone}`} className="hover:text-primary transition-colors">
+                      {candidate.phone}
+                    </a>
+                  </div>
+                )}
+                {candidate.file_path && (
+                    <Button 
+                        variant="link" 
+                        size="sm"
+                        className="h-auto p-0 text-muted-foreground hover:text-primary font-normal text-sm" 
+                        onClick={() => window.open(`${import.meta.env.VITE_API_URL}/api/candidates/${candidate.id}/cv`, '_blank')}
+                    >
+                        <FileText className="h-3.5 w-3.5 mr-1" /> PDF
+                    </Button>
+                )}
               </div>
-            )}
-            {candidate.phone && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-3 w-3" />
-                <a href={`tel:${candidate.phone}`} className="hover:text-primary transition-colors">
-                  {candidate.phone}
-                </a>
-              </div>
-            )}
-            {candidate.file_path && (
-                <Button 
-                    variant="link" 
-                    className="p-0 h-auto text-primary justify-start mt-1 font-normal" 
-                    onClick={() => window.open(`${import.meta.env.VITE_API_URL}/api/candidates/${candidate.id}/cv`, '_blank')}
-                >
-                    <FileText className="h-3 w-3 mr-1" /> View Original PDF
-                </Button>
-            )}
-          </div>
-        </div>
-
-        {candidate.status === 'analyzed' && (
-          <div className="text-right">
-            <div className={`text-3xl font-bold ${getScoreColor(candidate.score)}`}>
-              {candidate.score}
             </div>
-            <div className="text-xs text-muted-foreground">Match Score</div>
+
+            {candidate.status === 'analyzed' && (
+              <div className="text-right flex-none">
+                <div className={`text-3xl font-bold leading-none ${getScoreColor(candidate.score)}`}>
+                  {candidate.score}
+                </div>
+                <div className="text-[10px] uppercase font-semibold text-muted-foreground mt-1">Match Score</div>
+              </div>
+            )}
           </div>
-        )}
       </div>
 
-      <Separator />
-
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-5">
       {candidate.status === 'analyzed' ? (
-        <div className="grid grid-cols-1 gap-6">
+        <>
           {/* Summary */}
           {candidate.summary && (
-            <div className="bg-slate-50 p-4 rounded-lg border text-sm text-muted-foreground leading-relaxed">
+            <div className="bg-slate-50 p-3 rounded-md border text-sm text-muted-foreground leading-relaxed">
               {candidate.summary}
             </div>
           )}
 
-          {/* Skills */}
-          <div className="space-y-4">
-            {candidate.matched_skills.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+          {/* Salary Estimate */}
+          {candidate.salary_estimate && candidate.salary_estimate !== 'Not available' && (
+            <div className="bg-emerald-50 p-3 rounded-md border border-emerald-200 flex items-center gap-3">
+              <div className="p-1.5 bg-emerald-100 rounded-full text-emerald-700">
+                <Banknote className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xs font-bold text-emerald-900 uppercase">Estimated Salary (Cambodia)</h3>
+                <p className="text-emerald-700 font-semibold text-sm">{candidate.salary_estimate}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 gap-3">
+             <div className="border rounded p-3 flex items-center gap-3">
+                <div className="bg-blue-50 p-2 rounded text-blue-600">
+                    <Briefcase className="h-4 w-4" />
+                </div>
+                <div>
+                    <div className="text-xs text-muted-foreground">Experience</div>
+                    <div className="font-semibold">{candidate.experience_years} years</div>
+                </div>
+             </div>
+             <div className="border rounded p-3 flex items-center gap-3">
+                <div className="bg-purple-50 p-2 rounded text-purple-600">
+                    <GraduationCap className="h-4 w-4" />
+                </div>
+                <div>
+                    <div className="text-xs text-muted-foreground">Education</div>
+                    <div className="font-semibold text-sm truncate max-w-[150px]" title={candidate.education?.degree}>
+                        {candidate.education?.degree || 'Not specified'}
+                    </div>
+                </div>
+             </div>
+          </div>
+
+          {/* Skills Split */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                   Matched Skills
                 </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {candidate.matched_skills.map((skill, index) => (
-                    <Badge key={index} variant="secondary" className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">
+                <div className="flex flex-wrap gap-1">
+                  {candidate.matched_skills.length > 0 ? candidate.matched_skills.map((skill, index) => (
+                    <Badge key={index} variant="secondary" className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100 px-2 py-0.5 text-xs font-normal">
                       {skill}
                     </Badge>
-                  ))}
+                  )) : <span className="text-xs text-muted-foreground">-</span>}
                 </div>
-              </div>
-            )}
-
-            {candidate.missing_skills.length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
-                  <XCircle className="h-4 w-4 text-red-600" />
+             </div>
+             <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-red-500" />
                   Missing Skills
                 </h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {candidate.missing_skills.map((skill, index) => (
-                    <Badge key={index} variant="outline" className="text-muted-foreground bg-slate-50">
+                <div className="flex flex-wrap gap-1">
+                  {candidate.missing_skills.length > 0 ? candidate.missing_skills.map((skill, index) => (
+                    <Badge key={index} variant="outline" className="text-muted-foreground bg-slate-50 px-2 py-0.5 text-xs font-normal">
                       {skill}
                     </Badge>
-                  ))}
+                  )) : <span className="text-xs text-muted-foreground">-</span>}
                 </div>
-              </div>
-            )}
+             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Separator />
+
+          {/* Strengths & Concerns */}
+          <div className="grid grid-cols-1 gap-4">
             {/* Strengths */}
             {candidate.strengths.length > 0 && (
-              <Card className="border-green-100 bg-green-50/10">
-                <CardHeader className="py-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                    Key Strengths
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="py-0 pb-3">
-                  <ul className="space-y-1.5">
+                <div>
+                    <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-green-700">
+                        <TrendingUp className="h-4 w-4" /> Key Strengths
+                    </h3>
+                    <ul className="space-y-1">
                     {candidate.strengths.map((str, idx) => (
-                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-green-500 mt-1">•</span>
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2 text-xs">
+                        <span className="text-green-500 mt-1.5 h-1.5 w-1.5 rounded-full bg-green-500 flex-shrink-0" />
                         {str}
-                      </li>
+                        </li>
                     ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                    </ul>
+                </div>
             )}
 
             {/* Concerns */}
             {candidate.concerns.length > 0 && (
-              <Card className="border-yellow-100 bg-yellow-50/10">
-                 <CardHeader className="py-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-yellow-600" />
-                    Concerns
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="py-0 pb-3">
-                  <ul className="space-y-1.5">
+                <div>
+                    <h3 className="text-sm font-medium mb-2 flex items-center gap-2 text-yellow-700">
+                        <AlertCircle className="h-4 w-4" /> Areas for Review
+                    </h3>
+                     <ul className="space-y-1">
                     {candidate.concerns.map((str, idx) => (
-                      <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
-                        <span className="text-yellow-500 mt-1">•</span>
+                        <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2 text-xs">
+                        <span className="text-yellow-500 mt-1.5 h-1.5 w-1.5 rounded-full bg-yellow-500 flex-shrink-0" />
                         {str}
-                      </li>
+                        </li>
                     ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                    </ul>
+                </div>
             )}
           </div>
 
-          {/* Info & Actions */}
-          <div className="grid grid-cols-2 gap-4">
-             <Card>
-                <CardContent className="p-4 space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-2 mb-2">
-                        <Briefcase className="h-4 w-4" /> Experience
-                    </div>
-                    <div className="text-2xl font-bold">{candidate.experience_years} <span className="text-sm font-normal text-muted-foreground">years</span></div>
-                </CardContent>
-             </Card>
-             <Card>
-                <CardContent className="p-4 space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-2 mb-2">
-                        <GraduationCap className="h-4 w-4" /> Education
-                    </div>
-                    <div className="text-sm text-muted-foreground line-clamp-2">
-                        {candidate.education?.degree || 'Not specified'}
-                    </div>
-                </CardContent>
-             </Card>
-          </div>
-
-          <div className="flex gap-2">
+          {/* Actions Footer */}
+          <div className="pt-4 mt-4 border-t flex gap-2">
               <Button 
                 variant="outline" 
                 size="sm"
@@ -263,41 +274,50 @@ export function CandidateDetailPanel({ candidateId }: CandidateDetailPanelProps)
                  {isReanalyzing ? (
                     <div className="animate-spin rounded-full h-3 w-3 mr-2 border-2 border-inherit border-t-transparent" />
                  ) : (
-                    <RefreshCw className="h-3 w-3 mr-2" />
+                    <RefreshCw className="h-3.5 w-3.5 mr-2" />
                  )}
                  Re-analyze
               </Button>
               <Button 
-                variant="destructive"
+                variant="ghost"
                 size="sm" 
-                className="flex-1"
+                className="text-red-500 hover:text-red-600 hover:bg-red-50"
                 onClick={handleDelete}
                 disabled={isDeleting}
               >
                  {isDeleting ? (
                     <div className="animate-spin rounded-full h-3 w-3 mr-2 border-2 border-inherit border-t-transparent" />
                  ) : (
-                    <Trash2 className="h-3 w-3 mr-2" />
+                    <Trash2 className="h-3.5 w-3.5 mr-2" />
                  )}
                  Delete
               </Button>
           </div>
           
-        </div>
+        </>
       ) : (
-        <div className="text-center py-12 bg-slate-50 rounded-lg">
-           <div className="animate-pulse mb-4 flex justify-center">
-             <div className="h-12 w-12 bg-slate-200 rounded-full"></div>
+        <div className="flex flex-col items-center justify-center h-full text-center py-12">
+           <div className="h-12 w-12 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+                {candidate.status === 'error' ? <AlertCircle className="h-6 w-6 text-red-400" /> : <Clock className="h-6 w-6 text-slate-400" />}
            </div>
-           <p className="text-muted-foreground">Analysis in progress or failed.</p>
-           <p className="text-xs text-red-500 mt-2">{candidate.error_message}</p>
-           {candidate.status === 'error' && (
-              <Button variant="outline" size="sm" onClick={handleReanalyze} className="mt-4">
-                Retry Analysis
-              </Button>
+           <p className="text-muted-foreground font-medium mb-1">
+               {candidate.status === 'error' ? 'Analysis Failed' : 'Pending Analysis'}
+           </p>
+           {candidate.status === 'error' ? (
+               <div className="max-w-xs mx-auto">
+                    <p className="text-xs text-red-500 mb-4">{candidate.error_message}</p>
+                    <Button variant="outline" size="sm" onClick={handleReanalyze}>
+                        <RefreshCw className="h-3 w-3 mr-2" /> Retry Analysis
+                    </Button>
+               </div>
+           ) : (
+               <p className="text-xs text-muted-foreground max-w-xs">
+                   This candidate is queued for processing or waiting to be started.
+               </p>
            )}
         </div>
       )}
+      </div>
     </div>
   );
 }

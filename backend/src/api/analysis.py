@@ -22,6 +22,8 @@ def start_analysis(job_id):
     """
     Start or resume CV analysis for a job.
     
+    print(f"⚡ Received request to analyze job {job_id}", flush=True)  # Added explicit log
+
     This will analyze all pending candidates for the job.
     
     Returns:
@@ -39,6 +41,7 @@ def start_analysis(job_id):
         # Check if there are pending candidates
         pending = CandidateService.get_pending(job_id)
         if not pending:
+            print(f"⚠️ Job {job_id} has no pending candidates to analyze", flush=True)  # Added log
             return jsonify({
                 'status': 'success',
                 'message': 'No pending candidates to analyze',

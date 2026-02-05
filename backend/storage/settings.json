@@ -1,5 +1,5 @@
 {
   "ollama_model": "llama3:latest",
   "system_prompt": "",
-  "temperature": 0.3
+  "temperature": 0.2
 }

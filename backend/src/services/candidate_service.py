@@ -81,6 +81,7 @@ class CandidateService:
                     strengths = ?,
                     concerns = ?,
                     summary = ?,
+                    salary_estimate = ?,
                     status = 'analyzed',
                     analyzed_at = CURRENT_TIMESTAMP
                 WHERE id = ?
@@ -98,6 +99,7 @@ class CandidateService:
                 json.dumps(analysis.get('strengths', [])),
                 json.dumps(analysis.get('concerns', [])),
                 analysis.get('summary', ''),
+                analysis.get('salary_estimate'),
                 candidate_id
             ))
             return True

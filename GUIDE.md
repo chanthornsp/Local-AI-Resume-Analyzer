@@ -26,6 +26,23 @@ Before you begin, ensure you have:
 
 ---
 
+## 🚀 Fast Track: Unified Start
+
+Instead of running backend and frontend separately, you can use the unified starter script:
+
+1. **Install Dependencies** (First run only):
+   - Backend: `cd backend` (setup venv) and `pip install -r requirements.txt`
+   - Frontend: `cd frontend && npm install`
+
+2. **Run the App**:
+   ```bash
+   python start.py
+   ```
+
+*If you prefer running services manually, follow the detailed steps below.*
+
+---
+
 ## 🟢 Step 1: Start Ollama (AI Engine)
 
 Open a terminal and start the Ollama service:
@@ -446,5 +463,5 @@ Ready for deployment and production use.
 
 ---
 
-**Last Updated:** 2026-02-02
+**Last Updated:** 2026-02-05
 **Version:** 3.0 (Complete Feature-Complete)

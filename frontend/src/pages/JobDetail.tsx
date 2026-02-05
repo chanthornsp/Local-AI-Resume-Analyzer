@@ -22,8 +22,35 @@ import {
   TrendingUp,
   Clock,
   AlertCircle,
+  MoreVertical,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { JobForm } from '@/components/jobs/JobForm';
+import { useUpdateJob, useDeleteJob } from '@/hooks/useJobs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export function JobDetail() {
   const { id } = useParams<{ id: string }>();
@@ -36,6 +63,36 @@ export function JobDetail() {
   const { mutate: pasteCV, isPending: isPasting } = usePasteCV(jobId);
   const { mutate: startAnalysis, isPending: isStarting } = useStartAnalysis(jobId);
   const { mutate: exportCandidates } = useExportCandidates(jobId);
+  
+  const updateJob = useUpdateJob();
+  const deleteJob = useDeleteJob();
+  
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  const handleDelete = () => {
+    deleteJob.mutate(jobId, {
+      onSuccess: () => {
+        toast.success('Job deleted successfully');
+        navigate('/');
+      },
+      onError: () => {
+        toast.error('Failed to delete job');
+      }
+    });
+  };
+
+  const handleUpdate = (data: any) => {
+    updateJob.mutate({ id: jobId, data }, {
+      onSuccess: () => {
+        toast.success('Job updated successfully');
+        setIsEditOpen(false);
+      },
+      onError: () => {
+        toast.error('Failed to update job');
+      }
+    });
+  };
 
   // Initialize active tab from localStorage or default to 'overview'
   const [activeTab, setActiveTab] = useState(() => {
@@ -138,108 +195,149 @@ export function JobDetail() {
   const analyzedCount = candidates?.filter(c => c.status === 'analyzed').length || 0;
 
   return (
-    <div className="min-h-screen bg-background pb-12">
+    <div className="h-screen flex flex-col bg-background overflow-hidden">
       {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-6 py-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold">{job.title}</h1>
-                <Badge variant={job.status === 'active' ? 'default' : 'secondary'}>
-                  {job.status}
-                </Badge>
-              </div>
+      <header className="border-b bg-white shadow-sm z-10 relative flex-none">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+               <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/')}
+                className="h-8 w-8"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
               
-              <div className="flex flex-wrap gap-4 text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  <span>{job.company}</span>
+              <div>
+                <div className="flex items-center gap-3">
+                    <h1 className="text-xl font-bold truncate max-w-[400px]" title={job.title}>{job.title}</h1>
+                    <Badge variant={job.status === 'active' ? 'default' : 'secondary'} className="rounded-md px-2 py-0 h-5 text-[10px] uppercase">
+                        {job.status}
+                    </Badge>
                 </div>
-                {job.location && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    <span>{job.location}</span>
-                  </div>
-                )}
-                {job.salary_range && (
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    <span>{job.salary_range}</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                    <div className="flex items-center gap-1">
+                        <Building2 className="h-3 w-3" />
+                        <span>{job.company}</span>
+                    </div>
+                    {job.location && (
+                        <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            <span>{job.location}</span>
+                        </div>
+                    )}
+                    {job.salary_range && (
+                        <div className="flex items-center gap-1">
+                            <DollarSign className="h-3 w-3" />
+                            <span>{job.salary_range}</span>
+                        </div>
+                    )}
+                </div>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-4 mr-4 text-xs text-muted-foreground border-r pr-4">
+                    <div className="text-center">
+                        <span className="block font-bold text-foreground">{candidates?.length || 0}</span>
+                        <span>Total</span>
+                    </div>
+                    <div className="text-center">
+                        <span className="block font-bold text-green-600">{analyzedCount}</span>
+                        <span>Analyzed</span>
+                    </div>
+                    <div className="text-center">
+                        <span className="block font-bold text-yellow-600">{pendingCount}</span>
+                        <span>Pending</span>
+                    </div>
+                 </div>
+
+                 <Button size="sm" variant="outline" onClick={() => setActiveTab('upload')}>
+                     Upload CVs
+                 </Button>
+                 {pendingCount > 0 && (
+                    <Button 
+                        size="sm"
+                        onClick={handleStartAnalysis}
+                        disabled={isStarting || isAnalyzing}
+                    >
+                        {isStarting || isAnalyzing ? 'Analyzing...' : 'Analyze Pending'}
+                    </Button>
+                 )}
+                 {analyzedCount > 0 && (
+                    <Button size="sm" variant="ghost" onClick={handleExport}>
+                        <Download className="h-4 w-4" />
+                    </Button>
+                 )}
+
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit Job
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setIsDeleteOpen(true)} className="text-red-600 focus:text-red-600">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Job
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                 </DropdownMenu>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="upload">Upload CVs</TabsTrigger>
-            <TabsTrigger value="candidates">
-              Candidates {candidates && candidates.length > 0 && `(${candidates.length})`}
-            </TabsTrigger>
-          </TabsList>
+      <main className="container mx-auto px-4 py-4 flex-1 overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col space-y-4">
+            <div className="flex-none">
+                <TabsList className="grid w-full max-w-[400px] grid-cols-3">
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="candidates">Candidates</TabsTrigger>
+                    <TabsTrigger value="upload">Upload</TabsTrigger>
+                </TabsList>
+            </div>
 
           {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="overview" className="space-y-6 overflow-y-auto pb-10">
+            {/* Same overview content... simplified for brevity if needed/kept same */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Candidates
-                  </CardTitle>
+               {/* Dashboard cards kept same */}
+               <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Total Candidates</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{candidates?.length || 0}</div>
+                  <div className="text-2xl font-bold">{candidates?.length || 0}</div>
                 </CardContent>
               </Card>
-
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Analyzed
-                  </CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Analyzed</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-green-600">{analyzedCount}</div>
+                  <div className="text-2xl font-bold text-green-600">{analyzedCount}</div>
                 </CardContent>
               </Card>
-
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Pending
-                  </CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Pending</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-yellow-600">{pendingCount}</div>
+                  <div className="text-2xl font-bold text-yellow-600">{pendingCount}</div>
                 </CardContent>
               </Card>
-
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Top Matches
-                  </CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-medium text-muted-foreground">Top Matches</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold text-blue-600">
-                    {progress?.categories?.excellent || 0}
-                  </div>
+                  <div className="text-2xl font-bold text-blue-600">{progress?.categories?.excellent || 0}</div>
                 </CardContent>
               </Card>
             </div>
@@ -247,189 +345,165 @@ export function JobDetail() {
             {/* Analysis Progress */}
             {isAnalyzing && progress && (
               <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+                <CardHeader className="py-4">
+                   {/* ... Keep existing progress UI ... */}
+                   <CardTitle className="flex items-center justify-between text-base">
                     <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent" />
-                      </div>
-                      <span>AI Analysis in Progress</span>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent" />
+                        <span>Analysis in Progress... {Math.round((progress.analyzed / progress.total_candidates) * 100)}%</span>
                     </div>
-                    <div className="text-lg font-bold text-blue-600">
-                      {Math.round((progress.analyzed / progress.total_candidates) * 100)}%
-                    </div>
-                  </CardTitle>
-                  <CardDescription>
-                    Processing CVs with AI... {progress.analyzed} of {progress.total_candidates} complete
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {/* Progress Bar */}
-                  <div className="w-full bg-white/50 rounded-full h-3 overflow-hidden shadow-inner">
+                   </CardTitle>
+                   {/* Simplified Progress bar */}
+                   <div className="w-full bg-white/50 rounded-full h-2 mt-2 overflow-hidden shadow-inner">
                     <div 
-                      className="bg-gradient-to-r from-blue-500 to-indigo-600 h-full transition-all duration-500 ease-out flex items-center justify-end pr-2"
+                      className="bg-blue-600 h-full transition-all duration-500"
                       style={{ width: `${(progress.analyzed / progress.total_candidates) * 100}%` }}
-                    >
-                      {progress.analyzed > 0 && (
-                        <div className="text-white text-xs font-bold drop-shadow">
-                          {progress.analyzed}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Status Breakdown */}
-                  <div className="grid grid-cols-3 gap-2 pt-2">
-                    <div className="text-center p-2 bg-white/60 rounded-lg">
-                      <div className="text-xs text-muted-foreground">Analyzed</div>
-                      <div className="text-sm font-bold text-green-600">{progress.analyzed}</div>
-                    </div>
-                    <div className="text-center p-2 bg-white/60 rounded-lg">
-                      <div className="text-xs text-muted-foreground">Pending</div>
-                      <div className="text-sm font-bold text-yellow-600">{progress.pending}</div>
-                    </div>
-                    <div className="text-center p-2 bg-white/60 rounded-lg">
-                      <div className="text-xs text-muted-foreground">Errors</div>
-                      <div className="text-sm font-bold text-red-600">{progress.errors}</div>
-                    </div>
-                  </div>
-                </CardContent>
+                    />
+                   </div>
+                </CardHeader>
               </Card>
             )}
 
-            {/* Job Description */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Job Description</CardTitle>
-              </CardHeader>
-              <CardContent className="prose prose-sm max-w-none">
-                <p className="text-muted-foreground whitespace-pre-wrap">{job.description}</p>
-              </CardContent>
-            </Card>
-
-            {/* Requirements */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Requirements</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {job.requirements.map((req, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
-                      <span className="text-sm">{req}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-
-            {/* Skills */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Required Skills</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {job.skills.map((skill, index) => (
-                    <Badge key={index} variant="secondary">
-                      {skill}
-                    </Badge>
-                  ))}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="text-base">Job Description</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+                        {job.description}
+                    </CardContent>
+                </Card>
+                <div className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Requirements</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ul className="space-y-2 text-sm">
+                            {job.requirements.map((req, index) => (
+                                <li key={index} className="flex items-start gap-2">
+                                <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
+                                <span>{req}</span>
+                                </li>
+                            ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-base">Skills</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex flex-wrap gap-1.5">
+                            {job.skills.map((skill, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                {skill}
+                                </Badge>
+                            ))}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <div className="flex gap-3">
-              {pendingCount > 0 && (
-                <Button 
-                  size="lg"
-                  onClick={handleStartAnalysis}
-                  disabled={isStarting || isAnalyzing}
-                  className="relative"
-                >
-                  {isStarting || isAnalyzing ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2" />
-                      {isAnalyzing ? 'Analyzing...' : 'Starting Analysis...'}
-                    </>
-                  ) : (
-                    <>
-                      <Play className="h-5 w-5 mr-2" />
-                      Analyze {pendingCount} CV{pendingCount !== 1 ? 's' : ''}
-                    </>
-                  )}
-                </Button>
-              )}
-              {analyzedCount > 0 && (
-                <Button size="lg" variant="outline" onClick={handleExport}>
-                  <Download className="h-5 w-5 mr-2" />
-                  Export Results
-                </Button>
-              )}
             </div>
           </TabsContent>
 
           {/* Upload Tab */}
-          <TabsContent value="upload">
-            <Card>
-              <CardHeader>
-                <CardTitle>Upload CV Files</CardTitle>
-                <CardDescription>
-                  Upload PDF or image files of candidate resumes. They will be queued for AI analysis.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <CVUploader 
-                  onUpload={handleUpload} 
-                  onPasteText={handlePasteText}
-                  isUploading={isUploading || isPasting} 
-                />
+          <TabsContent value="upload" className="h-full">
+            <Card className="h-full border-dashed">
+              <CardContent className="p-8 h-full flex flex-col items-center justify-center">
+                <div className="max-w-2xl w-full">
+                     <CVUploader 
+                        onUpload={handleUpload} 
+                        onPasteText={handlePasteText}
+                        isUploading={isUploading || isPasting} 
+                    />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Candidates Tab */}
-          <TabsContent value="candidates" className="h-[calc(100vh-220px)] min-h-[600px] data-[state=inactive]:hidden">
+          {/* Candidates Tab - MAIN REDESIGN */}
+          <TabsContent value="candidates" className="flex-1 overflow-hidden data-[state=inactive]:hidden mt-0!">
             {isLoadingCandidates ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-              </div>
+               <div className="flex justify-center items-center h-full">
+                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+               </div>
             ) : candidates && candidates.length > 0 ? (
-               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-full">
-                  {/* List Sidebar */}
-                  <div className="md:col-span-4 lg:col-span-3 h-full overflow-y-auto pr-1">
-                      <CandidateList 
-                        candidates={candidates} 
-                        selectedId={selectedCandidateId}
-                        onSelect={setSelectedCandidateId}
-                      />
+               <div className="flex h-full gap-4 items-stretch">
+                  {/* List Sidebar - Narrow & Compact */}
+                  <div className="w-[320px] flex-none flex flex-col border rounded-lg bg-white overflow-hidden shadow-sm">
+                      <div className="p-2 border-b bg-muted/30 text-xs font-medium text-muted-foreground flex justify-between items-center">
+                          <span>Candidates ({candidates.length})</span>
+                          {/* Could add Sort/Filter here later */}
+                      </div>
+                      <div className="flex-1 overflow-y-auto">
+                           <CandidateList 
+                                candidates={candidates} 
+                                selectedId={selectedCandidateId}
+                                onSelect={setSelectedCandidateId}
+                            />
+                      </div>
                   </div>
                   
-                  {/* Detail Panel */}
-                  <div className="md:col-span-8 lg:col-span-9 bg-white rounded-lg border p-6 shadow-sm h-full overflow-hidden">
+                  {/* Detail Panel - Wide & Flexible */}
+                  <div className="flex-1 border rounded-lg bg-white shadow-sm overflow-hidden flex flex-col">
                       <CandidateDetailPanel candidateId={selectedCandidateId} />
                   </div>
                </div>
             ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-16">
-                  <div className="text-center">
-                    <h3 className="text-lg font-semibold mb-2">No candidates yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      Upload CV files to start screening candidates for this position.
-                    </p>
-                    <Button onClick={() => setActiveTab('upload')}>
-                      Upload CVs
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                <div className="flex flex-col items-center justify-center h-full border-2 border-dashed rounded-lg bg-slate-50">
+                    <p className="text-muted-foreground mb-4">No candidates yet.</p>
+                    <Button onClick={() => setActiveTab('upload')}>Upload CVs</Button>
+                </div>
             )}
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Edit Job Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Job</DialogTitle>
+          </DialogHeader>
+          <JobForm 
+            defaultValues={{
+                title: job.title,
+                company: job.company,
+                description: job.description,
+                requirements: job.requirements,
+                skills: job.skills,
+                location: job.location,
+                salary_range: job.salary_range,
+            }}
+            onSubmit={handleUpdate}
+            onCancel={() => setIsEditOpen(false)}
+            isSubmitting={updateJob.isPending}
+          />
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Alert */}
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the job 
+              and all {candidates?.length || 0} associated candidates.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+                onClick={handleDelete}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+                {deleteJob.isPending ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

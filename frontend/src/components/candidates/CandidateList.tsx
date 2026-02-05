@@ -1,15 +1,6 @@
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import type { Candidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, AlertCircle, Clock, XCircle } from "lucide-react";
+import { Clock, XCircle, CheckCircle2 } from "lucide-react";
 
 interface CandidateListProps {
   candidates: Candidate[];
@@ -18,7 +9,7 @@ interface CandidateListProps {
 }
 
 export function CandidateList({ candidates, selectedId, onSelect }: CandidateListProps) {
-  // Sort by score desc by default, putting analyzed first
+  // Sort by score desc by default
   const sortedCandidates = [...candidates].sort((a, b) => {
     // Priority: Analyzed > Error > Pending
     if (a.status === 'analyzed' && b.status !== 'analyzed') return -1;
@@ -32,75 +23,60 @@ export function CandidateList({ candidates, selectedId, onSelect }: CandidateLis
     return 0;
   });
 
-  const getScoreBadge = (score: number) => {
-    if (score >= 85) return "bg-green-100 text-green-800 hover:bg-green-100";
-    if (score >= 70) return "bg-blue-100 text-blue-800 hover:bg-blue-100";
-    if (score >= 50) return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100";
-    return "bg-slate-100 text-slate-800 hover:bg-slate-100";
+  const getScoreColor = (score: number) => {
+    if (score >= 85) return "text-green-600 bg-green-50 border-green-200";
+    if (score >= 70) return "text-blue-600 bg-blue-50 border-blue-200";
+    if (score >= 50) return "text-yellow-600 bg-yellow-50 border-yellow-200";
+    return "text-slate-600 bg-slate-50 border-slate-200";
   };
 
-  const getStatusIcon = (status: string, error?: string) => {
-      if (status === 'analyzed') return null;
-      if (status === 'pending') return <Clock className="h-4 w-4 text-slate-400" />;
-      if (status === 'error') return <XCircle className="h-4 w-4 text-red-500" />;
-      return null;
-  };
+  if (sortedCandidates.length === 0) {
+      return (
+          <div className="p-8 text-center text-sm text-muted-foreground">
+              No candidates found.
+          </div>
+      );
+  }
 
   return (
-    <div className="border rounded-md bg-white overflow-hidden shadow-sm">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[50%]">Candidate</TableHead>
-            <TableHead className="text-right">Score</TableHead> 
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedCandidates.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                No candidates found.
-              </TableCell>
-            </TableRow>
-          ) : (
-            sortedCandidates.map((candidate) => (
-              <TableRow
-                key={candidate.id}
-                className={cn(
-                  "cursor-pointer transition-colors hover:bg-slate-50",
-                  selectedId === candidate.id && "bg-blue-50/50 border-l-4 border-l-blue-600"
-                )}
-                onClick={() => onSelect(candidate.id)}
-              >
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium text-sm truncate max-w-[180px]" title={candidate.name}>
-                        {candidate.name || candidate.original_filename}
-                    </span>
-                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                       {getStatusIcon(candidate.status)}
-                       {candidate.status === 'analyzed' ? (
-                           <span>{candidate.experience_years}y exp</span>
-                       ) : (
-                           <span className="italic capitalize">{candidate.status}</span>
-                       )}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  {candidate.status === 'analyzed' ? (
-                    <Badge variant="secondary" className={getScoreBadge(candidate.score)}>
-                      {candidate.score}
-                    </Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+    <div className="divide-y">
+      {sortedCandidates.map((candidate) => (
+        <div
+            key={candidate.id}
+            onClick={() => onSelect(candidate.id)}
+            className={cn(
+                "p-3 cursor-pointer hover:bg-slate-50 transition-colors flex items-center justify-between gap-3 group border-l-4 border-l-transparent",
+                selectedId === candidate.id 
+                    ? "bg-blue-50/40 border-l-blue-600" 
+                    : "border-l-transparent"
+            )}
+        >
+            <div className="flex-1 min-w-0">
+                <div className={cn("font-medium text-sm truncate", selectedId === candidate.id ? "text-primary" : "text-foreground")}>
+                    {candidate.name || candidate.original_filename}
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                    {candidate.status === 'analyzed' ? (
+                       <span className="text-xs text-muted-foreground truncate">
+                           {candidate.experience_years} years exp
+                       </span>
+                    ) : (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1 capitalize">
+                             {candidate.status === 'pending' && <Clock className="h-3 w-3" />}
+                             {candidate.status === 'error' && <XCircle className="h-3 w-3 text-red-500" />}
+                             {candidate.status}
+                        </span>
+                    )}
+                </div>
+            </div>
+            
+            {candidate.status === 'analyzed' && (
+                <div className={cn("text-xs font-bold px-2 py-1 rounded border min-w-[32px] text-center", getScoreColor(candidate.score))}>
+                    {candidate.score}
+                </div>
+            )}
+        </div>
+      ))}
     </div>
   );
 }

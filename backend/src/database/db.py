@@ -60,6 +60,7 @@ def init_db():
                 strengths TEXT,                   -- JSON array
                 concerns TEXT,                    -- JSON array
                 summary TEXT,
+                salary_estimate TEXT,
                 
                 -- Raw Data
                 cv_text TEXT,                     -- Extracted text from CV
@@ -86,6 +87,13 @@ def init_db():
         try:
             conn.execute('ALTER TABLE candidates ADD COLUMN file_path TEXT')
             print("  ✨ Added file_path column to candidates table")
+        except sqlite3.OperationalError:
+            pass # Column already exists
+
+        # Migration: Add salary_estimate column if not exists
+        try:
+            conn.execute('ALTER TABLE candidates ADD COLUMN salary_estimate TEXT')
+            print("  ✨ Added salary_estimate column to candidates table")
         except sqlite3.OperationalError:
             pass # Column already exists
     
