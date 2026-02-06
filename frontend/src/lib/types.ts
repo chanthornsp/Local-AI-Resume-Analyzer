@@ -15,6 +15,8 @@ export interface Job {
     total_candidates?: number;
     excellent_count?: number;
     good_count?: number;
+    average_count?: number;
+    below_average_count?: number;
 }
 
 export type JobStatus = 'active' | 'closed' | 'draft';

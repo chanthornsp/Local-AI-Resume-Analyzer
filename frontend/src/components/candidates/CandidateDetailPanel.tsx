@@ -1,15 +1,17 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useCandidate, useReanalyzeCandidate, useDeleteCandidate } from '@/hooks/useCandidates';
 import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
   Mail,
   Phone,
   Briefcase,
   GraduationCap,
-  Award,
+
   AlertCircle,
   TrendingUp,
   CheckCircle2,
@@ -18,7 +20,10 @@ import {
   Trash2,
   FileText,
   Banknote,
-  Clock 
+  Clock,
+  Calendar,
+  Copy,
+  File as FileIcon
 } from 'lucide-react';
 
 interface CandidateDetailPanelProps {
@@ -26,6 +31,7 @@ interface CandidateDetailPanelProps {
 }
 
 export function CandidateDetailPanel({ candidateId }: CandidateDetailPanelProps) {
+  const [isCVTextOpen, setIsCVTextOpen] = useState(false);
   const { data: candidate, isLoading } = useCandidate(candidateId || 0);
   const { mutate: reanalyze, isPending: isReanalyzing } = useReanalyzeCandidate(candidate?.job_id || 0);
   const { mutate: deleteCandidate, isPending: isDeleting } = useDeleteCandidate(candidate?.job_id || 0);
@@ -87,13 +93,7 @@ export function CandidateDetailPanel({ candidateId }: CandidateDetailPanelProps)
     return 'text-gray-600';
   };
 
-  const categoryColors = {
-    excellent: 'bg-green-100 text-green-800 border-green-300',
-    good: 'bg-blue-100 text-blue-800 border-blue-300',
-    average: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-    below_average: 'bg-gray-100 text-gray-800 border-gray-300',
-    pending: 'bg-slate-100 text-slate-800 border-slate-300',
-  };
+
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -121,14 +121,21 @@ export function CandidateDetailPanel({ candidateId }: CandidateDetailPanelProps)
                     </a>
                   </div>
                 )}
-                {candidate.file_path && (
+                {(candidate.file_path || candidate.cv_text) && (
                     <Button 
                         variant="link" 
                         size="sm"
                         className="h-auto p-0 text-muted-foreground hover:text-primary font-normal text-sm" 
-                        onClick={() => window.open(`${import.meta.env.VITE_API_URL}/api/candidates/${candidate.id}/cv`, '_blank')}
+                        onClick={() => {
+                            if (candidate.file_path && candidate.file_path.toLowerCase().endsWith('.pdf')) {
+                                window.open(`${import.meta.env.VITE_API_URL}/api/candidates/${candidate.id}/cv`, '_blank');
+                            } else {
+                                setIsCVTextOpen(true);
+                            }
+                        }}
                     >
-                        <FileText className="h-3.5 w-3.5 mr-1" /> PDF
+                        <FileText className="h-3.5 w-3.5 mr-1" /> 
+                        {candidate.file_path && candidate.file_path.toLowerCase().endsWith('.pdf') ? 'View PDF' : 'View Original CV'}
                     </Button>
                 )}
               </div>
@@ -144,6 +151,52 @@ export function CandidateDetailPanel({ candidateId }: CandidateDetailPanelProps)
             )}
           </div>
       </div>
+
+      {/* CV Text Dialog */}
+      <Dialog open={isCVTextOpen} onOpenChange={setIsCVTextOpen}>
+        <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+             <div className="px-6 py-4 flex items-center justify-between border-b bg-slate-50/50">
+                <div>
+                     <DialogTitle className="flex items-center gap-2">
+                        <FileText className="h-5 w-5 text-blue-600" />
+                        Original CV Content
+                     </DialogTitle>
+                     <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                            <FileIcon className="h-3 w-3" />
+                            {candidate.original_filename}
+                        </span>
+                        {candidate.created_at && (
+                             <span className="flex items-center gap-1.5">
+                                <Calendar className="h-3 w-3" />
+                                {new Date(candidate.created_at).toLocaleString()}
+                             </span>
+                        )}
+                     </div>
+                </div>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                        navigator.clipboard.writeText(candidate.cv_text || "");
+                        toast.success("Copied to clipboard");
+                    }}
+                >
+                    <Copy className="h-3.5 w-3.5 mr-2" /> Copy Text
+                </Button>
+             </div>
+             
+            <div className="flex-1 overflow-y-auto p-6 bg-white">
+                <div className="text-sm font-mono whitespace-pre-wrap leading-relaxed text-slate-700 max-w-none">
+                    {candidate.cv_text || "No text content available."}
+                </div>
+            </div>
+            
+            <div className="p-4 border-t bg-slate-50 flex justify-end">
+                <Button onClick={() => setIsCVTextOpen(false)}>Close</Button>
+            </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto p-4 space-y-5">

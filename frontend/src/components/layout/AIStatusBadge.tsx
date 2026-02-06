@@ -1,6 +1,6 @@
 import { useSystemStatus } from '@/hooks/useSystem';
 import { Badge } from '@/components/ui/badge';
-import { Bot, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Bot, XCircle, Loader2 } from 'lucide-react';
 
 export function AIStatusBadge() {
   const { data: status, isLoading, isError } = useSystemStatus();

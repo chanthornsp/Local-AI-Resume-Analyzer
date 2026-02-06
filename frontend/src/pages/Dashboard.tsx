@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { JobList } from '@/components/jobs/JobList';
 import { useJobs } from '@/hooks/useJobs';
-import { Plus, Search, Briefcase, Settings } from 'lucide-react';
+import { Plus, Search, Settings } from 'lucide-react';
 import { AIStatusBadge } from '@/components/layout/AIStatusBadge';
 
 export function Dashboard() {

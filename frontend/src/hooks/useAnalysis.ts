@@ -3,6 +3,7 @@ import { analysisApi } from '@/lib/api';
 import type { AnalysisProgress } from '@/lib/types';
 import { CANDIDATE_KEYS } from './useCandidates';
 import { JOB_KEYS } from './useJobs';
+import { useEffect } from 'react';
 
 export const ANALYSIS_KEYS = {
     all: ['analysis'] as const,
@@ -54,6 +55,8 @@ export function useStartAnalysis(jobId: number) {
  * Automatically starts/stops polling based on completion status
  */
 export function useAnalysisPolling(jobId: number, enabled: boolean = true) {
+    const queryClient = useQueryClient();
+
     const { data: progress, isLoading } = useAnalysisStatus(jobId, {
         enabled,
         refetchInterval: (query) => {
@@ -64,6 +67,20 @@ export function useAnalysisPolling(jobId: number, enabled: boolean = true) {
             return shouldPoll ? 2000 : false;
         },
     });
+
+    // Invalidate candidates list while analyzing and when complete so the UI updates
+    useEffect(() => {
+        if (progress?.analysis_status === 'in_progress' || progress?.analysis_status === 'complete') {
+            queryClient.invalidateQueries({
+                queryKey: CANDIDATE_KEYS.list(jobId)
+            });
+
+            // Also invalidate job stats to update the dashboard counts
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.stats(jobId)
+            });
+        }
+    }, [progress, queryClient, jobId]);
 
     return {
         progress,

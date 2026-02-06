@@ -44,6 +44,16 @@ def stream_output(process, prefix):
     process.stdout.close()
 
 def main():
+    # Force stdout to use utf-8 to support emojis
+    if sys.stdout.encoding != 'utf-8':
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass
+
+    # Check for production mode
+    is_prod = "--prod" in sys.argv
+
     root_dir = os.getcwd()
     backend_dir = os.path.join(root_dir, "backend")
     frontend_dir = os.path.join(root_dir, "frontend")
@@ -54,7 +64,7 @@ def main():
     env = os.environ.copy()
     
     # Ensure PYTHONPATH includes the backend directory
-    # env["PYTHONPATH"] = backend_dir # app.py handles imports relative to its location usually if cwd is right
+    # env["PYTHONPATH"] = backend_dir 
     
     # Force UTF-8 encoding for output
     env["PYTHONIOENCODING"] = "utf-8"
@@ -68,42 +78,71 @@ def main():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding='utf-8', # Explicitly read as UTF-8
         bufsize=1  # Line buffered
     )
     print(f"Backend started with PID {backend_process.pid}")
 
     # Start threads to stream output
-    def stream_output(pipe, prefix):
-        # Use utf-8 with replacement for any potential decoding errors
-        for line in iter(lambda: pipe.readline(), ''):
-            print(f"{prefix} {line}", end='')
+    def stream_output_thread(pipe, prefix):
+        try:
+            for line in iter(pipe.readline, ''):
+                if not line: break
+                try:
+                    print(f"{prefix} {line}", end='')
+                except UnicodeEncodeError:
+                    # Fallback for terminals that can't handle the emoji
+                    sanitized = line.encode('ascii', 'replace').decode('ascii')
+                    print(f"{prefix} {sanitized}", end='')
+        except ValueError:
+            pass # Handle closed pipe
     
-    Thread(target=stream_output, args=(backend_process.stdout, "[BACKEND]"), daemon=True).start()
-    Thread(target=stream_output, args=(backend_process.stderr, "[BACKEND ERROR]"), daemon=True).start()
+    Thread(target=stream_output_thread, args=(backend_process.stdout, "[BACKEND]"), daemon=True).start()
+    Thread(target=stream_output_thread, args=(backend_process.stderr, "[BACKEND LOGS]"), daemon=True).start()
 
     # 2. Start Frontend
     print("Starting Frontend...")
     npm_cmd = get_npm_command()
     
+    if is_prod:
+        print("🏗️  Building Frontend for Production...")
+        try:
+            # Run build synchronously
+            # Use shell=True specifically on Windows if needed, but often npm.cmd handles it.
+            # We'll use shell=False with npm.cmd which works reliably.
+            subprocess.run([npm_cmd, "run", "build"], cwd=frontend_dir, shell=False, check=True)
+            print("✅ Build successful!")
+            
+            print("Starting Frontend (Preview Mode)...")
+            frontend_cmd = [npm_cmd, "run", "preview"]
+        except subprocess.CalledProcessError:
+            print("❌ Build failed. Aborting.")
+            backend_process.terminate()
+            return
+    else:
+        print("Starting Frontend (Dev Mode)...")
+        frontend_cmd = [npm_cmd, "run", "dev"]
+
     frontend_process = subprocess.Popen(
-        [npm_cmd, "run", "dev"],
+        frontend_cmd,
         cwd=frontend_dir,
-        shell=False, # Shell=True sometimes helps with npm on windows but npm.cmd should work with False
+        shell=False, 
         # Capture output for streaming
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding='utf-8', 
         bufsize=1
     )
     print(f"Frontend started with PID {frontend_process.pid}")
 
-    Thread(target=stream_output, args=(frontend_process.stdout, "[FRONTEND]"), daemon=True).start()
-    Thread(target=stream_output, args=(frontend_process.stderr, "[FRONTEND ERROR]"), daemon=True).start()
+    Thread(target=stream_output_thread, args=(frontend_process.stdout, "[FRONTEND]"), daemon=True).start()
+    Thread(target=stream_output_thread, args=(frontend_process.stderr, "[FRONTEND ERROR]"), daemon=True).start()
 
     print("\n---------------------------------------------------")
-    print("🚀 Project is running!")
+    print(f"🚀 Project is running ({'PRODUCTION' if is_prod else 'DEV'} MODE)!")
     print("Backend: http://localhost:5001 (or configured port)")
-    print("Frontend: http://localhost:5173 (usually)")
+    print(f"Frontend: http://localhost:{'4173' if is_prod else '5173'} (usually)")
     print("Press Ctrl+C to stop both servers.")
     print("---------------------------------------------------\n")
 

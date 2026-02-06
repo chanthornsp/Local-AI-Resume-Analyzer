@@ -1,6 +1,6 @@
 import type { Candidate } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Clock, XCircle, CheckCircle2 } from "lucide-react";
+import { Clock, XCircle } from "lucide-react";
 
 interface CandidateListProps {
   candidates: Candidate[];

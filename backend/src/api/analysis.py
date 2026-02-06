@@ -20,14 +20,9 @@ ACTIVE_ANALYSES = set()
 @bp.route('/jobs/<int:job_id>/analyze', methods=['POST'])
 def start_analysis(job_id):
     """
-    Start or resume CV analysis for a job.
+    Start or resume CV analysis for a job asynchronously.
     
-    print(f"⚡ Received request to analyze job {job_id}", flush=True)  # Added explicit log
-
-    This will analyze all pending candidates for the job.
-    
-    Returns:
-        JSON with analysis results
+    This returns immediately so the UI can poll for progress.
     """
     try:
         # Check if job exists
@@ -38,10 +33,17 @@ def start_analysis(job_id):
                 'message': f'Job {job_id} not found'
             }), 404
         
+        # Check if already running
+        if job_id in ACTIVE_ANALYSES:
+            return jsonify({
+                'status': 'success',
+                'message': 'Analysis already in progress',
+                'data': {'job_id': job_id}
+            }), 200
+
         # Check if there are pending candidates
         pending = CandidateService.get_pending(job_id)
         if not pending:
-            print(f"⚠️ Job {job_id} has no pending candidates to analyze", flush=True)  # Added log
             return jsonify({
                 'status': 'success',
                 'message': 'No pending candidates to analyze',
@@ -52,40 +54,48 @@ def start_analysis(job_id):
                 }
             }), 200
         
-        # Initialize analyzer and start batch analysis
-        analyzer = CVAnalyzer()
+        # Mark job as active BEFORE starting thread to avoid race condition
+        # where polling checks status before thread has started
+        ACTIVE_ANALYSES.add(job_id)
         
-        try:
-            # Mark job as active
-            ACTIVE_ANALYSES.add(job_id)
-            
-            result = analyzer.analyze_batch(job_id)
-            
-            return jsonify({
-                'status': 'success',
-                'message': f"Analysis complete: {result['analyzed']} analyzed, {result['errors']} errors",
-                'data': result
-            }), 200
-            
-        except ConnectionError as e:
-            # Ollama connection error
-            return jsonify({
-                'status': 'error',
-                'message': 'Cannot connect to Ollama LLM service',
-                'details': str(e),
-                'hint': 'Please ensure Ollama is running: ollama serve'
-            }), 503  # Service Unavailable
-            
-        finally:
-            # Always remove from active set when done (success or error)
-            ACTIVE_ANALYSES.discard(job_id)
+        # Start analysis in background thread
+        import threading
+        thread = threading.Thread(target=run_async_analysis, args=(job_id,))
+        thread.daemon = True # Ensure thread dies if server restarts
+        thread.start()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Analysis started in background',
+            'data': {'job_id': job_id}
+        }), 202  # Accepted
             
     except Exception as e:
-        ACTIVE_ANALYSES.discard(job_id)
+        ACTIVE_ANALYSES.discard(job_id) # Cleanup on error
         return jsonify({
             'status': 'error',
             'message': str(e)
         }), 500
+
+def run_async_analysis(job_id):
+    """
+    Background worker for analysis
+    """
+    try:
+        print(f"⚡ [ASYNC] Starting analysis for job {job_id}", flush=True)
+        # ACTIVE_ANALYSES.add(job_id) # Already added in main thread
+        
+        # Initialize analyzer - create new instance for this thread
+        analyzer = CVAnalyzer()
+        result = analyzer.analyze_batch(job_id)
+        
+        print(f"✅ [ASYNC] Analysis complete for job {job_id}", flush=True)
+        
+    except Exception as e:
+        print(f"❌ [ASYNC] Error in analysis thread: {e}", flush=True)
+        
+    finally:
+        ACTIVE_ANALYSES.discard(job_id)
 
 
 @bp.route('/jobs/<int:job_id>/analyze/status', methods=['GET'])

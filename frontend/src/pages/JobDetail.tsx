@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CVUploader } from '@/components/upload/CVUploader';
 // import { CategoryGroup } from '@/components/candidates/CategoryGroup'; // Removed
@@ -16,12 +16,7 @@ import {
   Building2,
   MapPin,
   DollarSign,
-  Play,
   Download,
-  Award,
-  TrendingUp,
-  Clock,
-  AlertCircle,
   MoreVertical,
   Pencil,
   Trash2,
@@ -409,14 +404,16 @@ export function JobDetail() {
 
           {/* Upload Tab */}
           <TabsContent value="upload" className="h-full">
-            <Card className="h-full border-dashed">
-              <CardContent className="p-8 h-full flex flex-col items-center justify-center">
-                <div className="max-w-2xl w-full">
-                     <CVUploader 
-                        onUpload={handleUpload} 
-                        onPasteText={handlePasteText}
-                        isUploading={isUploading || isPasting} 
-                    />
+            <Card className="h-full border-dashed overflow-hidden">
+              <CardContent className="h-full p-0 overflow-y-auto">
+                <div className="min-h-full flex flex-col items-center justify-center p-8">
+                    <div className="max-w-2xl w-full">
+                         <CVUploader 
+                            onUpload={handleUpload} 
+                            onPasteText={handlePasteText}
+                            isUploading={isUploading || isPasting} 
+                        />
+                    </div>
                 </div>
               </CardContent>
             </Card>

@@ -1,5 +1,5 @@
 {
   "ollama_model": "llama3:latest",
-  "system_prompt": "",
+  "system_prompt": "**INSTRUCTIONS:**\nAnalyze this CV and provide a structured assessment. Extract information EXACTLY in this format:\n\nName: [candidate's full name]\nEmail: [email address if found, or \"Not provided\"]\nPhone: [phone number if found, or \"Not provided\"]\nMatch Score: [number from 0-100 based on job fit]\nExperience Years: [total years of relevant experience]\nMatched Skills: [comma-separated list of skills from CV that match job requirements]\nMissing Skills: [comma-separated list of required skills NOT found in CV]\nEducation: [highest degree and field, e.g., \"BS Computer Science\"]\nKey Strengths:\n- [strength 1 - specific achievement or skill]\n- [strength 2]\n- [strength 3]\nConcerns:\n- [concern 1 - gaps or missing qualifications]\n- [concern 2]\nSummary: [2-3 sentence overall assessment of candidate fit]\n\n\n**SCORING GUIDELINES:**\n- 85-100: Excellent match, exceeds requirements\n- 70-84: Good match, meets most requirements\n- 50-69: Average match, meets basic requirements\n- 0-49: Below requirements, significant gaps\n\nBe specific and honest. Base the score on actual qualifications, not potential.",
   "temperature": 0.2
 }
