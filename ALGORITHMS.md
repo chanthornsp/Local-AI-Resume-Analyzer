@@ -119,7 +119,7 @@ Output: Structured analysis (score, skills, strengths, concerns, etc.)
 | **Temperature** | 0.2-0.3 | Low randomness for consistent scoring |
 | **Top-p** | 0.9 | Nucleus sampling for coherent text |
 | **Max Predict** | 2000 tokens | Sufficient for detailed analysis |
-| **Streaming** | False | Get complete response at once |
+| **Streaming** | False | Get complete response in a single request |
 
 #### Why LLM vs Traditional ML?
 
