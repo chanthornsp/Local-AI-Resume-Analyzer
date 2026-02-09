@@ -40,7 +40,7 @@ export function useStartAnalysis(jobId: number) {
             });
             // Invalidate candidates list to show updates
             queryClient.invalidateQueries({
-                queryKey: CANDIDATE_KEYS.list(jobId)
+                queryKey: CANDIDATE_KEYS.all
             });
             // Invalidate job stats
             queryClient.invalidateQueries({
@@ -72,7 +72,7 @@ export function useAnalysisPolling(jobId: number, enabled: boolean = true) {
     useEffect(() => {
         if (progress?.analysis_status === 'in_progress' || progress?.analysis_status === 'complete') {
             queryClient.invalidateQueries({
-                queryKey: CANDIDATE_KEYS.list(jobId)
+                queryKey: CANDIDATE_KEYS.all
             });
 
             // Invalidate job stats to update the dashboard counts

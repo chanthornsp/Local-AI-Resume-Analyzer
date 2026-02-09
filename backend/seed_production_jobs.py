@@ -49,7 +49,7 @@ def seed_production_jobs():
                 'status': 'active'
             },
             {
-                'title': 'Frontend Officer',
+                'title': 'Frontend Developer',
                 'company': 'Canadia Bank',
                 'description': 'Join our digital transformation team to build modern web interfaces for our banking products. You will work closely with designers and backend developers to deliver high-quality user experiences.',
                 'requirements': json.dumps([
@@ -142,6 +142,22 @@ def seed_production_jobs():
                 'skills': json.dumps(['Flutter', 'React Native', 'iOS', 'Android', 'Dart', 'Mobile UI/UX', 'API Integration']),
                 'location': 'Phnom Penh, Cambodia',
                 'salary_range': '$800 - $1,800',
+                'status': 'active'
+            },
+            {
+                'title': 'Marketing Manager',
+                'company': 'Chip Mong Group',
+                'description': 'We are seeking a creative Marketing Manager to develop and execute marketing strategies. You will lead market research, manage advertising campaigns, and oversee our brand presence across all channels.',
+                'requirements': json.dumps([
+                    'Bachelor degree in Marketing, Business, or Communications',
+                    '3+ years of experience in marketing management',
+                    'Strong understanding of digital marketing and social media',
+                    'Excellent communication and leadership abilities',
+                    'Experience with budget management and ROI analysis'
+                ]),
+                'skills': json.dumps(['Marketing Strategy', 'Digital Marketing', 'Social Media Management', 'Content Strategy', 'Communication', 'Leadership', 'Market Research']),
+                'location': 'Phnom Penh, Cambodia',
+                'salary_range': '$1,500 - $3,000',
                 'status': 'active'
             }
         ]
