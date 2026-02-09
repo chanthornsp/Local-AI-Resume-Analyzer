@@ -327,6 +327,44 @@ def delete_candidate(candidate_id):
         }), 500
 
 
+@bp.route('/jobs/<int:job_id>/candidates', methods=['DELETE'])
+def bulk_delete_candidates(job_id):
+    """
+    Bulk delete candidates for a job.
+    
+    Body (JSON):
+        {
+            "candidate_ids": [1, 2, 3]
+        }
+    
+    Returns:
+        JSON confirmation
+    """
+    try:
+        data = request.get_json()
+        if not data or 'candidate_ids' not in data:
+            return jsonify({
+                'status': 'error',
+                'message': 'No candidate_ids provided'
+            }), 400
+            
+        candidate_ids = data['candidate_ids']
+        
+        count = CandidateService.bulk_delete(job_id, candidate_ids)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Deleted {count} candidates successfully',
+            'deleted_count': count
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
+
+
 @bp.route('/jobs/<int:job_id>/candidates/shortlist', methods=['GET'])
 def get_shortlist(job_id):
     """

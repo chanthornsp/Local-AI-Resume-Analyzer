@@ -438,6 +438,7 @@ export function JobDetail() {
                                 candidates={candidates} 
                                 selectedId={selectedCandidateId}
                                 onSelect={setSelectedCandidateId}
+                                jobId={jobId}
                             />
                       </div>
                   </div>

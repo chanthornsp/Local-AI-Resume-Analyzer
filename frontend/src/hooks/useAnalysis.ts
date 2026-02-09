@@ -75,9 +75,14 @@ export function useAnalysisPolling(jobId: number, enabled: boolean = true) {
                 queryKey: CANDIDATE_KEYS.list(jobId)
             });
 
-            // Also invalidate job stats to update the dashboard counts
+            // Invalidate job stats to update the dashboard counts
             queryClient.invalidateQueries({
                 queryKey: JOB_KEYS.stats(jobId)
+            });
+
+            // Invalidate the main job list (Dashboard) to update counts there too
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.lists()
             });
         }
     }, [progress, queryClient, jobId]);

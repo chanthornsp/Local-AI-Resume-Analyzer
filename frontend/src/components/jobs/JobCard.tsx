@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Building2, MapPin, Users, TrendingUp, Calendar } from 'lucide-react';
+import { Building2, MapPin, Users, Calendar, CheckCircle2, Clock } from 'lucide-react';
 import type { Job } from '@/lib/types';
 import { Link } from 'react-router';
 
@@ -18,7 +18,14 @@ export function JobCard({ job }: JobCardProps) {
     });
   };
 
-  const totalAnalyzed = (job.excellent_count || 0) + (job.good_count || 0);
+  const totalAnalyzed = 
+    (job.excellent_count || 0) + 
+    (job.good_count || 0) + 
+    (job.average_count || 0) + 
+    (job.below_average_count || 0);
+    
+  const pendingCount = (job.total_candidates || 0) - totalAnalyzed;
+
   const analysisProgress = job.total_candidates 
     ? Math.round((totalAnalyzed / job.total_candidates) * 100) 
     : 0;
@@ -79,23 +86,23 @@ export function JobCard({ job }: JobCardProps) {
           </div>
           
           <div className="text-center">
-            <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
-              <TrendingUp className="h-3.5 w-3.5" />
+            <div className="flex items-center justify-center gap-1 text-primary mb-1">
+              <CheckCircle2 className="h-3.5 w-3.5" />
             </div>
-            <div className="text-2xl font-bold text-green-600">
-              {job.excellent_count || 0}
+            <div className="text-2xl font-bold text-primary">
+              {totalAnalyzed}
             </div>
-            <div className="text-xs text-muted-foreground">Excellent</div>
+            <div className="text-xs text-muted-foreground">Analyzed</div>
           </div>
           
           <div className="text-center">
-            <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
-              <TrendingUp className="h-3.5 w-3.5" />
+            <div className="flex items-center justify-center gap-1 text-orange-500 mb-1">
+              <Clock className="h-3.5 w-3.5" />
             </div>
-            <div className="text-2xl font-bold text-blue-600">
-              {job.good_count || 0}
+            <div className="text-2xl font-bold text-orange-500">
+              {pendingCount < 0 ? 0 : pendingCount}
             </div>
-            <div className="text-xs text-muted-foreground">Good</div>
+            <div className="text-xs text-muted-foreground">Pending</div>
           </div>
         </div>
 
