@@ -181,6 +181,16 @@ export const candidatesApi = {
     },
 
     /**
+     * Bulk delete candidates
+     */
+    async bulkDelete(jobId: number, candidateIds: number[]): Promise<void> {
+        return fetchAPI<void>(`/api/jobs/${jobId}/candidates`, {
+            method: 'DELETE',
+            body: JSON.stringify({ candidate_ids: candidateIds }),
+        });
+    },
+
+    /**
      * Export candidates to CSV
      */
     async export(jobId: number, format: 'csv' | 'excel' = 'csv'): Promise<Blob> {

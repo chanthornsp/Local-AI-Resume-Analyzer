@@ -205,17 +205,26 @@ export function CVUploader({
                 ))}
               </div>
 
-              <div className="mt-4 pt-4 border-t">
+              <div className="mt-4 pt-4 border-t space-y-3">
+                {isUploading && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-muted-foreground animate-pulse">
+                      <span>Uploading...</span>
+                      <span>Please wait</span>
+                    </div>
+                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                      <div className="h-full bg-primary animate-indeterminate-progress origin-left-right" />
+                    </div>
+                  </div>
+                )}
+                
                 <Button
                   onClick={handleUpload}
                   disabled={isUploading || selectedFiles.length === 0}
                   className="w-full"
                 >
                   {isUploading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Uploading...
-                    </>
+                     'Processing Upload...'
                   ) : (
                     <>
                       <Upload className="h-4 w-4 mr-2" />

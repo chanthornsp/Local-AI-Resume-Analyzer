@@ -206,6 +206,34 @@ class CandidateService:
         with get_db() as conn:
             conn.execute('DELETE FROM candidates WHERE id = ?', (candidate_id,))
             return True
+
+    @staticmethod
+    def bulk_delete(job_id: int, candidate_ids: List[int]) -> int:
+        """
+        Delete multiple candidates for a job.
+        
+        Args:
+            job_id: Job ID (security check)
+            candidate_ids: List of candidate IDs
+        
+        Returns:
+            int: Number of deleted records
+        """
+        if not candidate_ids:
+            return 0
+            
+        with get_db() as conn:
+            # Create placeholders for IN clause
+            placeholders = ', '.join(['?'] * len(candidate_ids))
+            
+            # Add job_id to params for security (ensure we only delete for this job)
+            params = candidate_ids + [job_id]
+            
+            cursor = conn.execute(
+                f'DELETE FROM candidates WHERE id IN ({placeholders}) AND job_id = ?', 
+                params
+            )
+            return cursor.rowcount
     
     @staticmethod
     def get_shortlist(job_id: int, min_score: int = 70) -> List[Dict[str, Any]]:

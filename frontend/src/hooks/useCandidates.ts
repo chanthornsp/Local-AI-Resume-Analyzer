@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { candidatesApi } from '@/lib/api';
 
+import { JOB_KEYS } from './useJobs';
+
 export const CANDIDATE_KEYS = {
     all: ['candidates'] as const,
     lists: () => [...CANDIDATE_KEYS.all, 'list'] as const,
@@ -44,6 +46,14 @@ export function useUploadCVs(jobId: number) {
             // Invalidate candidates list to show newly uploaded CVs
             queryClient.invalidateQueries({
                 queryKey: CANDIDATE_KEYS.list(jobId)
+            });
+            // Update Dashboard counts
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.lists()
+            });
+            // Update Job details stats
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.stats(jobId)
             });
         },
     });
@@ -97,6 +107,35 @@ export function useDeleteCandidate(jobId: number) {
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: CANDIDATE_KEYS.list(jobId)
+            });
+            // Also invalidate stats/dashboard counts since we removed a candidate
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.stats(jobId)
+            });
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.lists()
+            });
+        },
+    });
+}
+
+/**
+ * Hook to bulk delete candidates
+ */
+export function useBulkDeleteCandidates(jobId: number) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (candidateIds: number[]) => candidatesApi.bulkDelete(jobId, candidateIds),
+        onSuccess: () => {
+            queryClient.invalidateQueries({
+                queryKey: CANDIDATE_KEYS.list(jobId)
+            });
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.stats(jobId)
+            });
+            queryClient.invalidateQueries({
+                queryKey: JOB_KEYS.lists()
             });
         },
     });
