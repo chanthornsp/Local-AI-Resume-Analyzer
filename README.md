@@ -45,6 +45,19 @@ A local Python application that helps recruiters screen and shortlist candidates
    ```
    This script will automatically start both the Backend (Flask) and Frontend (Vite) servers.
 
+## 🧠 AI Algorithms & Methodology
+
+This application uses sophisticated algorithms combining traditional NLP with modern Large Language Models:
+
+- **PDF Text Extraction**: pdfplumber + Tesseract OCR with image preprocessing
+- **AI Analysis**: Llama 3 via Ollama for contextual candidate evaluation
+- **Scoring**: Prompt-engineered LLM scoring with 0-100 match scores
+- **Categorization**: Threshold-based classification (Excellent/Good/Average/Below Average)
+- **Salary Estimation**: Linear interpolation based on score and job range
+- **Response Parsing**: Multi-pattern regex extraction for structured data
+
+**📖 For detailed explanation of all algorithms and techniques, see [ALGORITHMS.md](ALGORITHMS.md)**
+
 ## 🛠️ Technology Stack
 
 ### Backend
